@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neighborhood Quest — Print Your QR Codes</title>
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#f3f6fb;color:#2a3346;padding:24px;}
+  .wrap{max-width:900px;margin:0 auto;}
+  h1{margin:0 0 4px;color:#ff6f61;}
+  p.lede{color:#5b6b86;margin-top:0;}
+  .panel{background:#fff;border:1px solid #dde4f0;border-radius:14px;padding:16px 18px;margin-bottom:18px;}
+  label{font-weight:700;display:block;margin-bottom:6px;}
+  input{width:100%;font-size:16px;padding:10px 12px;border:2px solid #cdd6e8;border-radius:10px;font-family:inherit;}
+  input:focus{outline:none;border-color:#5b8def;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
+  .row>div{flex:1;min-width:240px;}
+  button{font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:10px;padding:11px 18px;
+    cursor:pointer;background:#5b8def;color:#fff;}
+  button.ghost{background:#eef2fb;color:#3a5a8a;border:1px solid #cdd6e8;}
+  .note{font-size:13px;color:#7a89a6;margin-top:8px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:8px;}
+  .qr{background:#fff;border:2px dashed #b9c4dc;border-radius:16px;padding:14px;text-align:center;break-inside:avoid;}
+  .qr .em{font-size:34px;}
+  .qr h3{margin:4px 0;font-size:17px;}
+  .qr img{width:100%;max-width:200px;height:auto;image-rendering:pixelated;}
+  .qr .url{font-size:11px;color:#8a97b2;word-break:break-all;margin-top:6px;}
+  .qr .cut{font-size:12px;color:#b9c4dc;margin-top:6px;}
+  @media print{
+    body{background:#fff;padding:0;}
+    .noprint{display:none !important;}
+    .qr{border-color:#ccc;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🗺️ Neighborhood Quest — Setup</h1>
+  <p class="lede">Make the QR codes to tape around your neighborhood. Cut them out, laminate if you like, and place each one at its spot!</p>
+
+  <div class="panel noprint">
+    <div class="row">
+      <div>
+        <label for="base">Where is your game hosted? (the web address of index.html)</label>
+        <input id="base" placeholder="https://your-site.com/neighborhood-quest/" />
+      </div>
+      <button id="gen">Make QR Codes</button>
+    </div>
+    <p class="note">
+      Tip: host the folder for free on <b>GitHub Pages</b>, <b>Netlify Drop</b>, or <b>Cloudflare Pages</b>, then paste that link above.
+      Each code opens the map straight to its stop. (This page needs internet to draw the codes; the game itself works offline once loaded.)
+    </p>
+    <p class="note">Just testing at home? You don't need QR codes at all — open <b>index.html</b> and tap the spots on the map.</p>
+  </div>
+
+  <div class="noprint" style="margin-bottom:12px;">
+    <button class="ghost" onclick="window.print()">🖨️ Print these</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+</div>
+
+<script src="data.js"></script>
+<script>
+  const grid = document.getElementById("grid");
+  const qrImg = (url) => "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" + encodeURIComponent(url);
+  function card(emoji, title, url, base, tag) {
+    const el = document.createElement("div");
+    el.className = "qr";
+    el.innerHTML =
+      `<div class="em">${emoji}</div>` +
+      `<h3>${title}</h3>` +
+      (base ? `<img src="${qrImg(url)}" alt="QR for ${title}" />`
+            : `<div style="padding:40px;color:#b9c4dc;">enter address ↑</div>`) +
+      `<div class="url">${url}${tag ? '<br><b>code: ' + tag + '</b>' : ''}</div>` +
+      `<div class="cut">✂️ - - - - - - - - - -</div>`;
+    grid.appendChild(el);
+  }
+  function build(base) {
+    grid.innerHTML = "";
+    // Master "Start Here" code — put this on your flyer / front door to begin the quest.
+    const startUrl = base || "(enter your web address above)";
+    card("🚩", "START HERE (begin the quest)", startUrl, base, "");
+    // One unique-hex code per stop.
+    STOPS.forEach((s) => {
+      const url = base
+        ? base + (base.includes("?") ? "&" : "?") + "c=" + s.code
+        : "(enter your web address above) ?c=" + s.code;
+      card(s.emoji, s.name, url, base, s.code);
+    });
+  }
+  document.getElementById("gen").onclick = () => build(document.getElementById("base").value.trim());
+  build(""); // show placeholders
+</script>
+</body>
+</html>

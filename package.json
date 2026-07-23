@@ -1,0 +1,10 @@
+{
+  "name": "neighborhood-quest",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A kid-friendly neighborhood scavenger-hunt game with anonymous scan tracking (Upstash Redis).",
+  "dependencies": {
+    "@upstash/redis": "^1.34.0"
+  }
+}
