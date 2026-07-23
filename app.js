@@ -518,6 +518,12 @@ $("installClose").onclick = () => {
 try {
   if (typeof navigator !== "undefined" && "serviceWorker" in navigator && location.protocol.startsWith("http")) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
+    // when a newly-deployed service worker takes over, reload once so the fresh
+    // version shows up automatically (no manual cache-clearing needed).
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloaded) return; reloaded = true; location.reload();
+    });
   }
 } catch {}
 

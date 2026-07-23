@@ -1,7 +1,7 @@
-// Service worker — lets the app install to the home screen and work offline
-// during a neighborhood walk (spotty signal). Scan logging (/api/*) always
-// goes to the network and is never cached.
-const CACHE = "lakeland-quest-v1";
+// Service worker — installable + offline, but NETWORK-FIRST so a new deploy shows
+// up immediately when online (falls back to cache only when the network fails).
+// Scan logging (/api/*) always goes straight to the network and is never cached.
+const CACHE = "lakeland-quest-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -20,9 +20,9 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -30,20 +30,17 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.pathname.startsWith("/api/")) return; // never cache scans
 
-  // Navigations: serve the app shell so any ?c=<code> URL opens instantly/offline.
-  if (e.request.mode === "navigate") {
-    e.respondWith(caches.match("./index.html").then((r) => r || fetch(e.request)));
-    return;
-  }
-  // Static assets: cache-first, then network (and cache it for next time).
+  // Network-first: try the network, cache a fresh copy for offline, and only fall
+  // back to the cache (or the app shell) when offline.
   e.respondWith(
-    caches.match(e.request).then((cached) =>
-      cached ||
-      fetch(e.request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+    fetch(e.request)
+      .then((res) => {
+        if (res && res.ok && url.origin === location.origin) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        }
         return res;
-      }).catch(() => cached)
-    )
+      })
+      .catch(() => caches.match(e.request).then((cached) => cached || caches.match("./index.html")))
   );
 });
