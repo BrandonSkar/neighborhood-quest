@@ -7,6 +7,8 @@ const MASCOTS = [
   { id: "owl",    name: "Luna",    emoji: "🦉", color: "#8ce6b0", cheer: ["Hoo-ray, smart one!", "Wise move!", "You solved it!"] },
   { id: "dino",   name: "Rex",     emoji: "🦖", color: "#79c24a", cheer: ["ROAR-some job!", "Stomp stomp, yes!", "Dino-mite find!"] },
   { id: "bunny",  name: "Clover",  emoji: "🐰", color: "#ff9ec4", cheer: ["Hoppy days!", "Ear-resistible find!", "Some-bunny did great!"] },
+  { id: "penguin",name: "Waddles", emoji: "🐧", color: "#5b8fd6", cheer: ["Slip-slidin' success!", "Waddle-tastic!", "Cool find, buddy!"] },
+  { id: "bear",   name: "Honey",   emoji: "🐻", color: "#c98a4a", cheer: ["Beary good job!", "Paw-some!", "Sweet as honey!"] },
 ];
 
 // ---- Stops around Lakeland Hills (Auburn, WA) ----

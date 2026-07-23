@@ -53,7 +53,7 @@ function show(id) {
 
 // ---------- pannable / zoomable map (clamped to boundaries) ----------
 const WORLD_W = 1520, WORLD_H = 1230;
-const COMPACT_RATIO = 1.9; // below minScale*this, pins collapse to little map dots
+const COMPACT_RATIO = 1.7; // below minScale*this, pins collapse to little map dots
 let mapScale = 1, mapTx = 0, mapTy = 0, minScale = 0.2, maxScale = 1, mapReady = false, mapMoved = 0;
 
 function applyMapTransform() {
@@ -79,7 +79,7 @@ function setupMapView(reset) {
   minScale = Math.min(vw / WORLD_W, vh / WORLD_H); // whole map fits (can't zoom out past this)
   maxScale = minScale * 3.5;
   if (reset || !mapReady) {
-    mapScale = Math.min(maxScale, minScale * 1.5);  // start slightly zoomed in so panning is meaningful
+    mapScale = Math.min(maxScale, minScale * 2.2);  // start zoomed in enough to show full icon pins (above COMPACT_RATIO)
     mapTx = (vw - WORLD_W * mapScale) / 2;
     mapTy = (vh - WORLD_H * mapScale) / 2;
     mapReady = true;
