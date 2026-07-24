@@ -171,7 +171,9 @@ async function loadStats(){
   }catch(e){ /* fall through to local */ }
   render(localData(), false);
 }
-loadStats();
+// Load the hider's published cards first so stop labels match the current hunt,
+// then draw the dashboard.
+loadConfig().catch(()=>{}).then(loadStats);
 </script>
 </body>
 </html>

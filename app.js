@@ -12,12 +12,17 @@ const stopById = (id) => STOPS.find((s) => s.id === id);
 const $ = (id) => document.getElementById(id);
 
 // ---------- read the QR: ?c=<hex> (preferred) or ?stop=<n> ----------
+// Resolved AFTER loadConfig() runs (see start() at the bottom) so a code that
+// belongs to a freshly-published card matches the live card set, not the defaults.
 const params = new URLSearchParams(location.search);
 const codeParam = params.get("c");
 const stopParam = parseInt(params.get("stop"), 10);
 let arrivalStopId = null;
-if (codeParam && stopByCode(codeParam)) arrivalStopId = stopByCode(codeParam).id;
-else if (!isNaN(stopParam) && stopById(stopParam)) arrivalStopId = stopParam;
+function resolveArrival() {
+  arrivalStopId = null;
+  if (codeParam && stopByCode(codeParam)) arrivalStopId = stopByCode(codeParam).id;
+  else if (!isNaN(stopParam) && stopById(stopParam)) arrivalStopId = stopParam;
+}
 
 // ---------- anonymous scan tracking (no personal data) ----------
 function sid() {
@@ -653,4 +658,9 @@ try {
   }
 } catch {}
 
-boot();
+// ---------- start: load the hider's published cards, then boot ----------
+(async function start() {
+  try { await loadConfig(); } catch { /* fall back to built-in STOPS */ }
+  resolveArrival();
+  boot();
+})();

@@ -23,9 +23,10 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 ## Structure
 | Path | Purpose |
 |---|---|
-| `index.html` / `app.js` / `styles.css` / `data.js` | The game |
-| `setup.html` | Generates a printable QR code per stop (+ a "Start Here" code) |
+| `index.html` / `app.js` / `styles.css` / `data.js` | The game (`data.js` holds the built-in/offline default stops) |
+| `setup.html` | **Hider-only, code-locked (8979)** card editor: add/edit/delete stops, drop exact GPS pins, publish, print QR codes |
 | `stats.html` | Live scan dashboard |
+| `api/config.js` | Stores/serves the hider's published cards (`nq:config`); publishing bumps the season |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
 | `api/stats.js` | Returns aggregate stats for the dashboard |
 | `manifest.webmanifest` / `sw.js` / `icon-*.png` | PWA install + offline |

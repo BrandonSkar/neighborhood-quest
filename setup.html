@@ -3,23 +3,57 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Neighborhood Quest — Print Your QR Codes</title>
+<title>Neighborhood Quest — Setup (Hider Only)</title>
 <style>
   *{box-sizing:border-box;}
   body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#f3f6fb;color:#2a3346;padding:24px;}
-  .wrap{max-width:900px;margin:0 auto;}
+  .wrap{max-width:920px;margin:0 auto;}
   h1{margin:0 0 4px;color:#ff6f61;}
+  h2{margin:22px 0 8px;color:#3a5a8a;font-size:19px;}
   p.lede{color:#5b6b86;margin-top:0;}
   .panel{background:#fff;border:1px solid #dde4f0;border-radius:14px;padding:16px 18px;margin-bottom:18px;}
   label{font-weight:700;display:block;margin-bottom:6px;}
-  input{width:100%;font-size:16px;padding:10px 12px;border:2px solid #cdd6e8;border-radius:10px;font-family:inherit;}
+  input{width:100%;font-size:16px;padding:10px 12px;border:2px solid #cdd6e8;border-radius:10px;font-family:inherit;background:#fff;}
   input:focus{outline:none;border-color:#5b8def;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
-  .row>div{flex:1;min-width:240px;}
+  .row>div{flex:1;min-width:220px;}
   button{font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:10px;padding:11px 18px;
     cursor:pointer;background:#5b8def;color:#fff;}
   button.ghost{background:#eef2fb;color:#3a5a8a;border:1px solid #cdd6e8;}
+  button.danger{background:#ffe9ea;color:#d0344a;border:1px solid #ffc9cf;}
+  button.big{font-size:17px;padding:14px 22px;background:#1fae67;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
   .note{font-size:13px;color:#7a89a6;margin-top:8px;}
+  .hidden{display:none !important;}
+
+  /* ---- lock gate ---- */
+  #lock .panel{max-width:420px;margin:8vh auto 0;text-align:center;}
+  #lock input{text-align:center;letter-spacing:8px;font-size:26px;font-weight:800;}
+  .shake{animation:shk .35s;}
+  @keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
+  /* ---- card editor ---- */
+  .card-edit{border:1px solid #e2e8f4;border-radius:12px;padding:12px;margin-bottom:12px;background:#fafcff;}
+  .ce-top{display:flex;gap:10px;align-items:center;}
+  .ce-emoji{width:64px;flex:0 0 64px;text-align:center;font-size:26px;padding:8px;}
+  .ce-name{flex:1;}
+  .ce-num{flex:0 0 auto;font-weight:800;color:#9aa7c2;font-size:14px;width:24px;text-align:center;}
+  .ce-coords{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:10px;}
+  .ce-coords>div{flex:1;min-width:120px;}
+  .ce-coords label{font-size:12px;color:#7a89a6;font-weight:700;}
+  .ce-row2{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+  .ce-loc{background:#eaf4ff;color:#1c6fd6;border:1px solid #bfdcff;white-space:nowrap;}
+  .ce-loc.ok{background:#e6f8ef;color:#118a52;border-color:#b6ebcf;}
+  .ce-park{display:flex;align-items:center;gap:6px;font-weight:700;color:#3a5a8a;font-size:14px;}
+  .ce-park input{width:auto;}
+  .ce-del{margin-left:auto;}
+  .accuracy{font-size:12px;color:#7a89a6;}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;}
+  .status{font-weight:700;margin-left:6px;}
+  .status.ok{color:#118a52;} .status.err{color:#d0344a;}
+
+  /* ---- print sheet ---- */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:8px;}
   .qr{background:#fff;border:2px dashed #b9c4dc;border-radius:16px;padding:14px;text-align:center;break-inside:avoid;}
   .qr .em{font-size:34px;}
@@ -35,64 +69,251 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<!-- ============ LOCK GATE ============ -->
+<div id="lock">
+  <div class="panel">
+    <h1>🔒 Setup</h1>
+    <p class="lede">Enter the setup code to place and edit your quest cards.</p>
+    <input id="codeInput" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" />
+    <div style="margin-top:12px;"><button id="unlockBtn" class="big" style="width:100%;">Unlock</button></div>
+    <p id="lockMsg" class="note"></p>
+  </div>
+</div>
+
+<!-- ============ EDITOR (unlocked) ============ -->
+<div id="editor" class="wrap hidden">
   <h1>🗺️ Neighborhood Quest — Setup</h1>
-  <p class="lede">Make the QR codes to tape around your neighborhood. Cut them out, laminate if you like, and place each one at its spot!</p>
+  <p class="lede">Add a card for each printout, drop its <b>exact pin</b>, then publish. The warmer&nbsp;🔥&nbsp;/&nbsp;colder&nbsp;❄️ hunt points at wherever you drop it, on every kid's phone.</p>
+
+  <div class="panel">
+    <label for="base">Your game's web address (where index.html lives)</label>
+    <input id="base" placeholder="https://your-site.com/" />
+    <p class="note">Used only to build the QR links below. The tip is: tape each QR at its spot after you drop its pin standing there.</p>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:2px;">Cards</h2>
+    <p class="note" style="margin-top:0;">Best way to get exact coords: stand at the printout's spot and tap <b>📍 Use my location</b> on that card. Or type coordinates in by hand.</p>
+    <div id="cards"></div>
+    <div class="toolbar">
+      <button id="addBtn" class="ghost">➕ Add a card</button>
+      <button id="clearBtn" class="danger">🧹 Clear all &amp; start fresh</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label class="ce-park" style="font-size:15px;"><input type="checkbox" id="newHunt" checked /> Start a fresh hunt (resets every kid's stamps for the new set)</label>
+    <p class="note">Leave this on when you change the spots. Turn it off if you're only nudging a pin and don't want to wipe anyone's progress.</p>
+    <div class="toolbar" style="margin-top:12px;">
+      <button id="publishBtn" class="big">🚀 Publish to all phones</button>
+      <span id="pubStatus" class="status"></span>
+    </div>
+    <p class="note">Publishing saves your cards to the game's database so every phone loads them next time it opens (online). The game still works offline after that.</p>
+  </div>
 
   <div class="panel noprint">
-    <div class="row">
-      <div>
-        <label for="base">Where is your game hosted? (the web address of index.html)</label>
-        <input id="base" placeholder="https://your-site.com/neighborhood-quest/" />
-      </div>
-      <button id="gen">Make QR Codes</button>
+    <h2 style="margin-top:2px;">Print the QR codes</h2>
+    <p class="note" style="margin-top:0;">One code per card. Cut them out, laminate if you like, and tape each at its dropped-pin spot.</p>
+    <div class="toolbar">
+      <button id="refreshQR" class="ghost">🔄 Refresh sheet</button>
+      <button onclick="window.print()">🖨️ Print sheet</button>
     </div>
-    <p class="note">
-      Tip: host the folder for free on <b>GitHub Pages</b>, <b>Netlify Drop</b>, or <b>Cloudflare Pages</b>, then paste that link above.
-      Each code opens the map straight to its stop. (This page needs internet to draw the codes; the game itself works offline once loaded.)
-    </p>
-    <p class="note">Just testing at home? Open <b>index.html</b> and add a stop's code to the address — e.g. <b>index.html?c=b7c218</b> — to simulate scanning it. (Tapping a pin only shows info; scanning is the only way to stamp.)</p>
   </div>
-
-  <div class="noprint" style="margin-bottom:12px;">
-    <button class="ghost" onclick="window.print()">🖨️ Print these</button>
-  </div>
-
   <div id="grid" class="grid"></div>
 </div>
 
 <script src="data.js"></script>
 <script>
-  const grid = document.getElementById("grid");
+  const $ = (id) => document.getElementById(id);
+  const SETUP_CODE = "8979";
+
+  // ---- lock gate ----
+  function tryUnlock() {
+    const v = $("codeInput").value.trim();
+    if (v === SETUP_CODE) {
+      $("lock").classList.add("hidden");
+      $("editor").classList.remove("hidden");
+      initEditor();
+    } else {
+      $("lockMsg").textContent = "Nope, try again.";
+      const p = $("codeInput"); p.classList.remove("shake"); void p.offsetWidth; p.classList.add("shake");
+      p.value = ""; p.focus();
+    }
+  }
+  $("unlockBtn").onclick = tryUnlock;
+  $("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+  $("codeInput").focus();
+
+  // ---- editor state ----
+  // each card: { emoji, name, lat, lng, park, code, acc }
+  let cards = [];
+  const newCode = () => Math.random().toString(16).slice(2, 8);
+  const BASE_KEY = "nq_setup_base";
+
+  async function initEditor() {
+    $("base").value = localStorage.getItem(BASE_KEY) || "";
+    $("base").addEventListener("input", () => localStorage.setItem(BASE_KEY, $("base").value.trim()));
+
+    // load whatever is currently published (falls back to the built-in STOPS)
+    let src = null;
+    try {
+      const r = await fetch("/api/config", { cache: "no-store" });
+      if (r.ok) { const c = await r.json(); if (c && Array.isArray(c.stops) && c.stops.length) src = c.stops; }
+    } catch { /* offline or file:// — fall back below */ }
+    if (!src) src = STOPS.map((s) => ({ name: s.name, emoji: s.emoji, code: s.code, ll: s.ll, park: s.park }));
+
+    cards = src.map((s) => ({
+      emoji: s.emoji || "📍",
+      name: s.name || "",
+      lat: s.ll ? s.ll[0] : "",
+      lng: s.ll ? s.ll[1] : "",
+      park: !!s.park,
+      code: s.code || newCode(),
+      acc: null,
+    }));
+    renderCards();
+    renderQR();
+  }
+
+  // ---- render the editable cards ----
+  function renderCards() {
+    const box = $("cards"); box.innerHTML = "";
+    cards.forEach((c, i) => {
+      const el = document.createElement("div");
+      el.className = "card-edit";
+      el.innerHTML = `
+        <div class="ce-top">
+          <span class="ce-num">${i + 1}</span>
+          <input class="ce-emoji" value="${escapeAttr(c.emoji)}" aria-label="Emoji" />
+          <input class="ce-name" placeholder="Name (e.g. Big Oak Tree)" value="${escapeAttr(c.name)}" aria-label="Name" />
+        </div>
+        <div class="ce-coords">
+          <div><label>Latitude</label><input class="ce-lat" inputmode="decimal" placeholder="47.2595" value="${c.lat}" /></div>
+          <div><label>Longitude</label><input class="ce-lng" inputmode="decimal" placeholder="-122.2113" value="${c.lng}" /></div>
+        </div>
+        <div class="ce-row2">
+          <button class="ce-loc${c.lat && c.lng ? " ok" : ""}">📍 Use my location</button>
+          <span class="accuracy"></span>
+          <label class="ce-park"><input type="checkbox" class="ce-parkcb" ${c.park ? "checked" : ""}/> 🌳 park (adds greenery)</label>
+          <button class="ce-del danger ghost">🗑️ Delete</button>
+        </div>`;
+
+      const emoji = el.querySelector(".ce-emoji");
+      const name = el.querySelector(".ce-name");
+      const lat = el.querySelector(".ce-lat");
+      const lng = el.querySelector(".ce-lng");
+      const parkcb = el.querySelector(".ce-parkcb");
+      const locBtn = el.querySelector(".ce-loc");
+      const acc = el.querySelector(".accuracy");
+      const delBtn = el.querySelector(".ce-del");
+
+      emoji.oninput = () => (c.emoji = emoji.value);
+      name.oninput = () => (c.name = name.value);
+      lat.oninput = () => { c.lat = lat.value.trim(); c.acc = null; locBtn.classList.toggle("ok", !!(c.lat && c.lng)); };
+      lng.oninput = () => { c.lng = lng.value.trim(); c.acc = null; locBtn.classList.toggle("ok", !!(c.lat && c.lng)); };
+      parkcb.onchange = () => (c.park = parkcb.checked);
+      delBtn.onclick = () => { cards.splice(i, 1); renderCards(); };
+
+      if (c.acc != null) acc.textContent = `±${Math.round(c.acc)} m`;
+
+      locBtn.onclick = () => {
+        if (!("geolocation" in navigator)) { acc.textContent = "No GPS on this device."; return; }
+        locBtn.textContent = "📡 Getting location…"; locBtn.disabled = true;
+        navigator.geolocation.getCurrentPosition(
+          (p) => {
+            c.lat = p.coords.latitude.toFixed(6);
+            c.lng = p.coords.longitude.toFixed(6);
+            c.acc = p.coords.accuracy;
+            lat.value = c.lat; lng.value = c.lng;
+            acc.textContent = `±${Math.round(c.acc)} m`;
+            locBtn.textContent = "📍 Use my location"; locBtn.disabled = false; locBtn.classList.add("ok");
+          },
+          (err) => {
+            acc.textContent = err.code === 1 ? "Location blocked — allow it in your browser." : "Couldn't get a fix, try again.";
+            locBtn.textContent = "📍 Use my location"; locBtn.disabled = false;
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+      };
+
+      box.appendChild(el);
+    });
+    if (!cards.length) box.innerHTML = `<p class="note">No cards yet. Tap <b>➕ Add a card</b> to begin.</p>`;
+  }
+
+  $("addBtn").onclick = () => { cards.push({ emoji: "📍", name: "", lat: "", lng: "", park: false, code: newCode(), acc: null }); renderCards(); };
+  $("clearBtn").onclick = () => {
+    if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); }
+  };
+
+  // ---- publish ----
+  function toStops() {
+    return cards.map((c) => ({
+      name: (c.name || "").trim(),
+      emoji: (c.emoji || "📍").trim() || "📍",
+      code: c.code || newCode(),
+      ll: (c.lat !== "" && c.lng !== "" && isFinite(+c.lat) && isFinite(+c.lng)) ? [+c.lat, +c.lng] : null,
+      park: !!c.park,
+    }));
+  }
+
+  $("publishBtn").onclick = async () => {
+    const stops = toStops();
+    const ready = stops.filter((s) => s.name && s.ll);
+    const bad = stops.length - ready.length;
+    if (!ready.length) { setStatus("Add at least one card with a name and a dropped pin.", "err"); return; }
+    if (bad && !confirm(`${bad} card(s) are missing a name or a pin and will be skipped. Publish the other ${ready.length}?`)) return;
+
+    const btn = $("publishBtn"); btn.disabled = true; setStatus("Publishing…", "");
+    try {
+      const r = await fetch("/api/config", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, stops: ready, newHunt: $("newHunt").checked }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { setStatus(j.error || "Publish failed. Is the site online with its database connected?", "err"); btn.disabled = false; return; }
+      // keep this device's game in sync immediately
+      try { localStorage.setItem("nq_config", JSON.stringify({ season: j.season, stops: ready })); } catch {}
+      setStatus(`✅ Published ${j.count} card(s)${j.newHunt ? ` — new hunt, Season ${j.season}` : ` — pins updated`}.`, "ok");
+    } catch (e) {
+      setStatus("Publish failed (no connection). Try again when online.", "err");
+    }
+    btn.disabled = false;
+  };
+  function setStatus(t, cls) { const s = $("pubStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+
+  // ---- QR print sheet ----
   const qrImg = (url) => "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" + encodeURIComponent(url);
-  function card(emoji, title, url, base, tag) {
+  function qrCard(emoji, title, url, base, tag) {
     const el = document.createElement("div");
     el.className = "qr";
     el.innerHTML =
       `<div class="em">${emoji}</div>` +
-      `<h3>${title}</h3>` +
-      (base ? `<img src="${qrImg(url)}" alt="QR for ${title}" />`
+      `<h3>${escapeHtml(title)}</h3>` +
+      (base ? `<img src="${qrImg(url)}" alt="QR for ${escapeAttr(title)}" />`
             : `<div style="padding:40px;color:#b9c4dc;">enter address ↑</div>`) +
       `<div class="cut">✂️ - - - - - - - - - -</div>` +
-      `<div class="url">${url}${tag ? '<br><b>code: ' + tag + '</b>' : ''}</div>`;
-    grid.appendChild(el);
+      `<div class="url">${escapeHtml(url)}${tag ? '<br><b>code: ' + tag + '</b>' : ''}</div>`;
+    return el;
   }
-  function build(base) {
-    grid.innerHTML = "";
-    // Optional plain app link (no stop) — handy for a flyer/poster to introduce the
-    // quest. NOT a starting point: every stop is independent and scannable in any order.
-    const startUrl = base || "(enter your web address above)";
-    card("🏠", "Lakeland Hills Quest", startUrl, base, "");
-    // One unique-hex code per stop.
-    STOPS.forEach((s) => {
-      const url = base
-        ? base + (base.includes("?") ? "&" : "?") + "c=" + s.code
-        : "(enter your web address above) ?c=" + s.code;
-      card(s.emoji, s.name, url, base, s.code);
+  function renderQR() {
+    const grid = $("grid"); grid.innerHTML = "";
+    const base = $("base").value.trim();
+    // intro/poster QR (opens the app with no stop)
+    grid.appendChild(qrCard("🏠", "Quest — Start Here", base || "(enter your web address above)", base, ""));
+    cards.forEach((c) => {
+      if (!c.name) return;
+      const url = base ? base + (base.includes("?") ? "&" : "?") + "c=" + c.code
+                       : "(enter your web address above) ?c=" + c.code;
+      grid.appendChild(qrCard(c.emoji || "📍", c.name, url, base, c.code));
     });
   }
-  document.getElementById("gen").onclick = () => build(document.getElementById("base").value.trim());
-  build(""); // show placeholders
+  $("refreshQR").onclick = renderQR;
+
+  // ---- tiny escapers ----
+  function escapeHtml(s){return (s+"").replace(/[&<>]/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));}
+  function escapeAttr(s){return (s+"").replace(/[&<>"]/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
 </script>
 </body>
 </html>

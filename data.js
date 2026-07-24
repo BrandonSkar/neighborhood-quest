@@ -1,7 +1,11 @@
 // Bump this each time you set NEW locations (a new "season"). On the next app
 // open, every device resets its stamps automatically but KEEPS its name + guide,
 // and rolls the old count into its lifetime total.
-const SEASON = 1;
+//
+// NOTE: SEASON and STOPS below are the built-in DEFAULTS / offline fallback. Once you
+// publish cards from setup.html they are stored in the backend (nq:config) and loaded
+// over these by loadConfig() — see the bottom of this file. That's why they are `let`.
+let SEASON = 1;
 
 // ---- Guides the kid can choose from ----
 const MASCOTS = [
@@ -19,7 +23,7 @@ const MASCOTS = [
 // ---- Stops around Lakeland Hills (Auburn, WA) ----
 // pos = percent position on the map WORLD (x%, y%), traced from Google Maps.
 // code = the unique hex value each QR sticker links to  ->  ...?c=<code>
-const STOPS = [
+let STOPS = [
   {
     id: 1, name: "Terminal Park School", emoji: "🏫", sticker: "🎒", color: "#ff9db1", pos: [20, 10],
     code: "a1f4c9",
@@ -102,4 +106,67 @@ const STOPS = [
 // find a stop by its QR hex code
 function stopByCode(code) {
   return STOPS.find((s) => s.code === code) || null;
+}
+
+// ---------------------------------------------------------------------------
+// Published cards (the hider's setup) live in the backend under nq:config. The
+// setup page (setup.html) writes them; every player device reads them here so a
+// new "exact coords" placement reaches all the kids' phones automatically.
+//
+// Order of preference on load:
+//   1. the built-in STOPS above  (instant, offline, first-ever run)
+//   2. a cached copy in localStorage  (instant, works offline / on file://)
+//   3. a fresh copy from /api/config  (network, when online — becomes the cache)
+// ---------------------------------------------------------------------------
+const NQ_CONFIG_KEY = "nq_config";
+const NQ_PALETTE = ["#ff9db1", "#7ecb73", "#ffb24b", "#5ec8ff", "#c79bff", "#ff7aa8", "#4ec5c1", "#ffd84b", "#8ce6b0", "#79c24a"];
+
+// Turn a lean setup card {name, emoji, code, ll, park} into a full STOPS entry,
+// auto-filling a friendly generic mission so the hider only enters name+emoji+pin.
+function nqNormalizeStop(s, i) {
+  const emoji = (s.emoji || "📍").toString();
+  const name = (s.name || "Mystery Spot").toString();
+  return {
+    id: i + 1,
+    name,
+    emoji,
+    sticker: s.sticker || emoji,
+    color: s.color || NQ_PALETTE[i % NQ_PALETTE.length],
+    code: s.code || Math.random().toString(16).slice(2, 8),
+    ll: Array.isArray(s.ll) ? [Number(s.ll[0]), Number(s.ll[1])] : null,
+    park: !!s.park,
+    intro: s.intro || `You found ${name} — awesome exploring! 🎉`,
+    easy: s.easy || `You made it to ${name}! Look all around and find something ${emoji}.`,
+    bonus: s.bonus || `Big-kid challenge: how many things can you count from right here in 10 seconds?`,
+    answer: s.answer || `Great counting — you're a super explorer! ⭐`,
+  };
+}
+
+function nqApplyConfig(c) {
+  if (!c || !Array.isArray(c.stops) || !c.stops.length) return false;
+  STOPS = c.stops.map(nqNormalizeStop);
+  if (Number.isInteger(c.season)) SEASON = c.season;
+  return true;
+}
+
+function nqOnline() { return location.protocol === "http:" || location.protocol === "https:"; }
+
+async function loadConfig() {
+  // instant: cached copy (offline / file://)
+  try { const c = JSON.parse(localStorage.getItem(NQ_CONFIG_KEY)); if (c) nqApplyConfig(c); } catch { /* keep defaults */ }
+  // fresh: network, with a short timeout so a weak signal outdoors can't hang the app
+  if (!nqOnline()) return;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+    const r = await fetch("/api/config", { signal: ctrl.signal, cache: "no-store" });
+    clearTimeout(t);
+    if (r.ok) {
+      const c = await r.json();
+      if (c && Array.isArray(c.stops) && c.stops.length) {
+        nqApplyConfig(c);
+        try { localStorage.setItem(NQ_CONFIG_KEY, JSON.stringify(c)); } catch { /* private mode */ }
+      }
+    }
+  } catch { /* offline / timeout -> defaults or cache */ }
 }
