@@ -110,9 +110,8 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
   animation:pop .28s cubic-bezier(.2,1.4,.4,1);}
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 .card h2{margin:4px 0 6px;font-size:26px;}
-.card-guide{position:absolute;top:-26px;left:50%;transform:translateX(-50%);font-size:54px;
-  filter:drop-shadow(0 4px 2px rgba(0,0,0,.2));}
-.stop-badge{font-size:58px;margin-top:26px;}
+.card-guide{font-size:44px;line-height:1;margin-bottom:2px;filter:drop-shadow(0 4px 2px rgba(0,0,0,.2));}
+.stop-badge{font-size:54px;margin-top:2px;}
 .intro{font-weight:700;color:#8a7a62;margin:2px 0 14px;font-size:16px;}
 
 .mission{background:#fff;border:4px dashed var(--sun);border-radius:20px;padding:12px 14px;margin:4px 0 12px;}
