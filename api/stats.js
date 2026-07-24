@@ -13,12 +13,13 @@ export default async function handler(req, res) {
   if (!redis) { res.status(200).json({ connected: false }); return; }
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const [total, completions, todayN, uniq, byStop, mascots, recentRaw, profilesRaw] = await Promise.all([
+    const [total, completions, todayN, uniq, byStop, missingByStop, mascots, recentRaw, profilesRaw] = await Promise.all([
       redis.get(P + "scans:total"),
       redis.get(P + "completions"),
       redis.get(P + "scans:day:" + today),
       redis.scard(P + "sessions"),
       redis.hgetall(P + "scans:byStop"),
+      redis.hgetall(P + "missing:byStop"),
       redis.hgetall(P + "mascots"),
       redis.lrange(P + "recent", 0, 24),
       redis.hgetall(P + "profiles"),
@@ -35,8 +36,9 @@ export default async function handler(req, res) {
       }))
       .sort((a, b) => (b.updated || 0) - (a.updated || 0));
 
+    const miss = missingByStop || {};
     const perStop = Object.entries(byStop || {})
-      .map(([stop_id, n]) => ({ stop_id: +stop_id, n: +n }))
+      .map(([stop_id, n]) => ({ stop_id: +stop_id, n: +n, missing: +(miss[stop_id] || 0) }))
       .sort((a, b) => a.stop_id - b.stop_id);
     const mascotArr = Object.entries(mascots || {})
       .map(([mascot, n]) => ({ mascot, n: +n }))

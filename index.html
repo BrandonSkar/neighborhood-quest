@@ -45,6 +45,13 @@
       <div class="hp-bar"><div id="hpFill" class="hp-fill"></div></div>
       <div class="hp-text">🏅 <b id="hpNow">0</b> / <b id="hpTotal">8</b> treasures found</div>
     </div>
+    <div class="lifetime">
+      <div class="life-strip">
+        <span class="life-pill">🏅 <b id="lifeTotal">0</b> all-time</span>
+        <span class="life-pill">🗓️ Season <b id="lifeSeason">1</b></span>
+      </div>
+      <div id="badgeRow" class="badge-row"></div>
+    </div>
     <div class="home-menu">
       <button id="btnMap" class="menu-btn map"><span>🗺️</span>Explore Map</button>
       <button id="btnPassport" class="menu-btn pass"><span>📖</span>My Passport</button>
@@ -67,6 +74,10 @@
 
   <div class="map-wrap">
       <div id="map" class="map"></div>
+      <div id="huntMeter" class="hunt-meter hidden">
+        <span id="huntText" class="hunt-text"></span>
+        <span id="huntTemp" class="hunt-temp"></span>
+      </div>
     </div>
   </section>
 
@@ -80,7 +91,6 @@
     <div id="missionWrap" class="mission">
       <div class="mission-head">
         <span class="mission-tag">✨ Your Mission</span>
-        <button id="readBtn" class="read-btn">🔊 Read to me</button>
       </div>
       <p id="stopEasy" class="mission-text"></p>
     </div>
@@ -90,6 +100,8 @@
       <button id="revealBtn" class="reveal-btn">Show the answer 👀</button>
       <p id="stopAnswer" class="answer hidden"></p>
     </div>
+    <button id="stickerGoneBtn" class="sticker-gone hidden">🙈 Sticker missing? I'm here!</button>
+    <p id="stopNote" class="stop-note hidden"></p>
     <button id="closeStop" class="big-btn done-btn">Back to map 🗺️</button>
   </div>
 </div>

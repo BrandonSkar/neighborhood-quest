@@ -29,7 +29,7 @@ function localBump(event, stop) {
   let st; try { st = JSON.parse(localStorage.getItem("nq_stats")) || {}; } catch { st = {}; }
   st.scans = st.scans || 0; st.perStop = st.perStop || {}; st.completions = st.completions || 0;
   st.sessions = st.sessions || {}; st.sessions[sid()] = 1;
-  if (event === "scan") { st.scans++; if (stop) st.perStop[stop] = (st.perStop[stop] || 0) + 1; }
+  if (event === "scan" || event === "sticker_missing") { st.scans++; if (stop) st.perStop[stop] = (st.perStop[stop] || 0) + 1; }
   if (event === "complete") st.completions++;
   localStorage.setItem("nq_stats", JSON.stringify(st));
 }
@@ -178,6 +178,80 @@ function initLeaflet() {
 function showMap() {
   initLeaflet();
   if (lmap) setTimeout(() => lmap.invalidateSize(), 0); // container was hidden; recompute size
+  startGeo();
+}
+
+// ---------- GPS: "you are here" dot + warmer/colder hunt meter ----------
+let youMarker = null, youAccuracy = null, geoWatchId = null;
+let lastFix = null;                 // [lat, lng] of the child's phone
+let lastNearestDist = null, lastNearestStopId = null;
+
+function haversine(a, b) {          // meters between two [lat, lng] points
+  const R = 6371000, toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b[0] - a[0]), dLon = toRad(b[1] - a[1]);
+  const h = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m"; }
+function nearestUnfound(pos) {
+  let best = null, bestD = Infinity;
+  for (const s of STOPS) {
+    if (!s.ll || state.visited.includes(s.id)) continue;
+    const d = haversine(pos, s.ll);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return best ? { stop: best, dist: bestD } : null;
+}
+function startGeo() {
+  if (geoWatchId != null || !("geolocation" in navigator)) return;
+  try {
+    geoWatchId = navigator.geolocation.watchPosition(
+      (p) => onFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
+      () => {}, // denied/unavailable -> the map just works without the dot
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+  } catch {}
+}
+function onFix(lat, lng, acc) {
+  lastFix = [lat, lng];
+  if (lmap) {
+    const ll = [lat, lng];
+    if (!youMarker) {
+      youMarker = L.marker(ll, {
+        icon: L.divIcon({ className: "you-dot-wrap", html: '<div class="you-dot"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }),
+        interactive: false, keyboard: false, zIndexOffset: 1000,
+      }).addTo(lmap);
+      youAccuracy = L.circle(ll, { radius: acc || 30, weight: 1, color: "#4aa8ff", opacity: 0.5, fillColor: "#4aa8ff", fillOpacity: 0.12, interactive: false }).addTo(lmap);
+    } else {
+      youMarker.setLatLng(ll);
+      youAccuracy.setLatLng(ll).setRadius(acc || 30);
+    }
+  }
+  updateHuntMeter();
+}
+function updateHuntMeter() {
+  const el = $("huntMeter"); if (!el) return;
+  if (!lastFix || $("game").classList.contains("hidden")) { el.classList.add("hidden"); return; }
+  const near = nearestUnfound(lastFix);
+  if (!near) {
+    $("huntText").innerHTML = "You found them all! 🏆";
+    $("huntTemp").textContent = "";
+    el.classList.remove("hidden");
+    lastNearestDist = null; lastNearestStopId = null;
+    return;
+  }
+  let temp = "";
+  if (near.dist < 40) {
+    temp = "🎯 you're here!";
+  } else if (lastNearestStopId === near.stop.id && lastNearestDist != null) {
+    if (near.dist < lastNearestDist - 3) temp = "🔥 warmer!";
+    else if (near.dist > lastNearestDist + 3) temp = "❄️ colder";
+  }
+  lastNearestDist = near.dist; lastNearestStopId = near.stop.id;
+  $("huntText").innerHTML = `Nearest: <b>${near.stop.name}</b> · ${fmtDist(near.dist)}`;
+  $("huntTemp").textContent = temp;
+  el.classList.remove("hidden");
 }
 
 // ---------- boot ----------
@@ -256,6 +330,7 @@ function goHome() {
   $("homeGreeting").textContent = state.name ? `Hi, ${state.name}!` : "Hi, Explorer!";
   homeSpeak(`I'm ${m.name} ${m.emoji}. Ready for an adventure?`);
   refreshProgress();
+  renderLifetime();
   maybePromptInstall();
 }
 function homeSpeak(t) { $("homeSpeech").textContent = t; }
@@ -272,6 +347,33 @@ function refreshProgress() {
   $("hpNow").textContent = n;
   $("hpFill").style.width = (n / total * 100) + "%";
   refreshMarkers();
+  updateHuntMeter();
+}
+
+// ---------- lifetime totals + badges on the home hub ----------
+function renderLifetime() {
+  const found = state.visited.length;
+  const total = (state.lifetimeFound || 0) + found;
+  $("lifeTotal").textContent = total;
+  $("lifeSeason").textContent = state.season || 1;
+
+  const parkIds = STOPS.filter((s) => s.park).map((s) => s.id);
+  const gotAllParks = parkIds.length > 0 && parkIds.every((id) => state.visited.includes(id));
+  const gotAll = found >= STOPS.length;
+  const badges = [
+    { on: found >= 1,                    em: "🧭", label: "First Find" },
+    { on: gotAllParks,                   em: "🌳", label: "Park Ranger" },
+    { on: gotAll,                        em: "🏆", label: "Quest Done" },
+    { on: (state.seasonsPlayed || 0) >= 1, em: "🔁", label: "Returning" },
+    { on: total >= 20,                   em: "⭐", label: "20 Found" },
+  ];
+  const wrap = $("badgeRow"); wrap.innerHTML = "";
+  badges.forEach((b) => {
+    const d = document.createElement("div");
+    d.className = "badge" + (b.on ? " earned" : "");
+    d.innerHTML = `<span class="be">${b.em}</span><span class="bl">${b.label}</span>`;
+    wrap.appendChild(d);
+  });
 }
 
 // ---------- scan arrival animation ----------
@@ -343,6 +445,7 @@ function openStop(id) {
   $("stopAnswer").classList.add("hidden");
   $("bonusBox").classList.add("hidden");
   $("bonusToggle").textContent = "🧠 Big Kid Challenge";
+  $("stopNote").classList.add("hidden");
   if (found) {
     $("stopBadge").textContent = s.emoji;
     $("stopIntro").textContent = s.intro;
@@ -351,16 +454,43 @@ function openStop(id) {
     $("stopAnswer").textContent = s.answer;
     $("missionWrap").classList.remove("hidden");
     $("bonusToggle").classList.remove("hidden");
+    $("stickerGoneBtn").classList.add("hidden");
   } else {
     $("stopBadge").textContent = "❓";
     $("stopIntro").textContent = `You haven't found this one yet! Look for the QR sticker at ${s.name} and scan it to stamp your passport. 🔍`;
     $("missionWrap").classList.add("hidden");
     $("bonusToggle").classList.add("hidden");
+    $("stickerGoneBtn").classList.remove("hidden");
   }
   $("stopModal").classList.remove("hidden");
-  stopSpeaking();
 }
-function closeStop() { $("stopModal").classList.add("hidden"); stopSpeaking(); }
+
+// The sticker at this stop is missing/damaged. Stamp it anyway, but ONLY if the
+// child's phone reports they are physically at the spot (GPS within ~150 m), and
+// log a "sticker_missing" event so we know which sign to reprint.
+const NEAR_M = 150;
+function stickerGone() {
+  const s = activeStop;
+  if (!s || !s.ll || state.visited.includes(s.id)) return;
+  if (!lastFix) {
+    flashCardNote("Turn on location so we can check you're here, then try again. 📍");
+    startGeo();
+    return;
+  }
+  const d = haversine(lastFix, s.ll);
+  if (d > NEAR_M) {
+    flashCardNote(`Get a little closer to ${s.name} first — you're about ${fmtDist(d)} away. 🚶`);
+    return;
+  }
+  closeStop();
+  logEvent("sticker_missing", s.id); // counts as a find + flags the reprint
+  startArrival(s.id);
+}
+function flashCardNote(t) {
+  const n = $("stopNote"); if (!n) return;
+  n.textContent = t; n.classList.remove("hidden");
+}
+function closeStop() { $("stopModal").classList.add("hidden"); }
 
 // ---------- passport ----------
 function openPassport() {
@@ -386,21 +516,6 @@ function finish() {
   $("finishStickers").textContent = STOPS.map((s) => s.sticker).join(" ");
   $("finishModal").classList.remove("hidden");
   bigConfetti();
-}
-
-// ---------- read-aloud ----------
-function stopSpeaking() {
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-  $("readBtn").classList.remove("on");
-}
-function readAloud() {
-  if (!("speechSynthesis" in window) || !activeStop) return;
-  if (window.speechSynthesis.speaking) { stopSpeaking(); return; }
-  const u = new SpeechSynthesisUtterance(activeStop.intro + " " + activeStop.easy);
-  u.rate = 0.92; u.pitch = 1.15;
-  u.onend = () => $("readBtn").classList.remove("on");
-  $("readBtn").classList.add("on");
-  window.speechSynthesis.speak(u);
 }
 
 // ---------- happy sound ----------
@@ -472,7 +587,7 @@ $("homeGuideBtn").onclick = () => {
 $("passportBtn").onclick = openPassport;
 $("closePassport").onclick = () => $("passportModal").classList.add("hidden");
 $("closeStop").onclick = closeStop;
-$("readBtn").onclick = readAloud;
+$("stickerGoneBtn").onclick = stickerGone;
 $("bonusToggle").onclick = () => {
   const hidden = $("bonusBox").classList.toggle("hidden");
   $("bonusToggle").textContent = hidden ? "🧠 Big Kid Challenge" : "🙈 Hide Challenge";

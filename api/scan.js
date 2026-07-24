@@ -22,17 +22,22 @@ export default async function handler(req, res) {
     const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const session = (b.session || "").toString().slice(0, 60);
     const stop = Number.isInteger(b.stop) ? b.stop : null;
-    const event = ["scan", "home", "complete"].includes(b.event) ? b.event : "scan";
+    const event = ["scan", "home", "complete", "sticker_missing"].includes(b.event) ? b.event : "scan";
     const mascot = b.mascot ? b.mascot.toString().slice(0, 20) : null;
+
+    // A missing/damaged sticker stamped via GPS still counts as a find, but we also
+    // tally it separately so /stats shows which sign needs reprinting.
+    const isFind = event === "scan" || event === "sticker_missing";
 
     const p = redis.pipeline();
     if (session) p.sadd(P + "sessions", session);         // unique visitors
-    if (event === "scan") {
+    if (isFind) {
       p.incr(P + "scans:total");
       p.incr(P + "scans:day:" + today());
       if (stop != null) p.hincrby(P + "scans:byStop", String(stop), 1);
       if (mascot) p.hincrby(P + "mascots", mascot, 1);
     }
+    if (event === "sticker_missing" && stop != null) p.hincrby(P + "missing:byStop", String(stop), 1);
     if (event === "complete") p.incr(P + "completions");
     p.lpush(P + "recent", JSON.stringify({ ts: Date.now(), stop, event, mascot }));
     p.ltrim(P + "recent", 0, 49);                          // keep last 50 events

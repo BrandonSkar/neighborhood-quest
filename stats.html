@@ -134,7 +134,10 @@ function render(d, live){
 
   const per = (d.perStop||[]).slice().sort((a,b)=>a.stop_id-b.stop_id);
   const max = Math.max(1, ...per.map(r=>r.n));
-  bars(document.getElementById("perStop"), per, r=>stopName(r.stop_id), max);
+  bars(document.getElementById("perStop"), per, r=>{
+    const miss = r.missing ? ` <span style="color:#ffab6b">🙈 ${r.missing} missing-sticker</span>` : "";
+    return stopName(r.stop_id) + miss;
+  }, max);
 
   if(d.mascots && d.mascots.length){
     document.getElementById("mascotPanel").style.display="";

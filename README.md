@@ -10,6 +10,13 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 - **Each stop has a unique hex code**; scanning `/?c=<code>` is the only way to stamp it.
 - **Pannable, real-map style** neighborhood with pinch-zoom and pins that shrink to
   small map dots when zoomed out.
+- **Live GPS**: a blue "you are here" dot plus a 🔥 warmer / ❄️ colder hunt meter that
+  points at the nearest unfound stop. Works without GPS too — the dot just doesn't show.
+- **Missing-sticker fallback**: if a sign is gone, the child can stamp the stop anyway,
+  but only when their phone confirms they're within ~150 m. Logged as a `sticker_missing`
+  event so `stats.html` shows which sign to reprint.
+- **Lifetime totals + badges** on the home hub (all-time treasures, season, achievements)
+  so returning players are rewarded across seasons.
 - **Anonymous scan tracking** (no names, no location) via two serverless functions
   backed by **Upstash Redis**, all keys namespaced under `nq:`.
 
