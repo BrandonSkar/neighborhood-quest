@@ -33,9 +33,10 @@ function localBump(event, stop) {
   if (event === "complete") st.completions++;
   localStorage.setItem("nq_stats", JSON.stringify(st));
 }
+function online() { return location.protocol === "http:" || location.protocol === "https:"; }
 function logEvent(event, stop) {
   localBump(event, stop);
-  if (location.protocol === "http:" || location.protocol === "https:") {
+  if (online()) {
     try {
       fetch("/api/scan", {
         method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
@@ -45,11 +46,53 @@ function logEvent(event, stop) {
   }
 }
 
+// Upsert this device's record (device id = sid) so their name, guide and stamps
+// are stored server-side, keyed by device.
+function syncDevice() {
+  if (!online()) return;
+  try {
+    fetch("/api/device", {
+      method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+      body: JSON.stringify({ session: sid(), name: state.name || "", mascot: state.mascot || "", visited: state.visited || [] }),
+    }).catch(() => {});
+  } catch {}
+}
+
+// Completely remove this device's data — from the database AND locally — then reset.
+function deleteMyData() {
+  const ok = typeof confirm !== "function" ||
+    confirm("Delete ALL your data?\n\nThis removes your name, guide, and stamps from this device and from our records. This can't be undone.");
+  if (!ok) return;
+  const s = sid();
+  if (online()) {
+    try {
+      fetch("/api/device", {
+        method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ session: s, action: "delete" }),
+      }).catch(() => {});
+    } catch {}
+  }
+  ["nq_state_v2", "nq_stats", "nq_sid", "nq_installDismissed"].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  setTimeout(() => { try { location.reload(); } catch {} }, 200);
+}
+
 // ---------- screen manager ----------
 function show(id) {
   ["picker", "home", "game"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
-  if (id === "game") showMap();
+  if (id === "game") { showMap(); armBack(); }
 }
+
+// ---------- Android/browser back button -> main menu (never leaves the app mid-quest) ----------
+const BACK_SUBS = ["stopModal", "passportModal", "guideModal", "finishModal", "scanAnim"];
+function anyModalOpen() { return BACK_SUBS.some((id) => !$(id).classList.contains("hidden")); }
+function atMenuScreen() { return !$("home").classList.contains("hidden") && !anyModalOpen(); }
+function goMenu() {
+  BACK_SUBS.forEach((id) => $(id).classList.add("hidden"));
+  if (state.mascot) goHome(); else show("picker");
+}
+let backGuard = false;
+function armBack() { if (!backGuard) { backGuard = true; try { history.pushState({ nq: 1 }, ""); } catch {} } }
+try { window.addEventListener("popstate", () => { backGuard = false; if (!atMenuScreen()) goMenu(); }); } catch {}
 
 // ---------- Leaflet map (OpenStreetMap tiles, GPS-pinned stops) ----------
 let lmap = null;
@@ -63,7 +106,7 @@ function stopIcon(s) {
   return L.divIcon({
     className: "qpin-wrap",
     html: `<div class="qpin${found ? " found" : ""}" style="--pc:${color}"><span>${s.emoji}</span></div>`,
-    iconSize: [40, 48], iconAnchor: [20, 46], tooltipAnchor: [0, -42],
+    iconSize: [40, 48], iconAnchor: [20, 46], tooltipAnchor: [0, -48],
   });
 }
 
@@ -113,7 +156,7 @@ function initLeaflet() {
   STOPS.forEach((s) => {
     if (!s.ll) return;
     const m = L.marker(s.ll, { icon: stopIcon(s) }).addTo(lmap)
-      .bindTooltip(s.name, { permanent: true, direction: "bottom", className: "pin-label", offset: [0, 2] });
+      .bindTooltip(s.name, { permanent: true, direction: "top", className: "pin-label", offset: [0, -4] });
     m.on("click", () => openStop(s.id));               // view-only: opens the card, never stamps
     leafMarkers[s.id] = m;
   });
@@ -145,6 +188,7 @@ function boot() {
 
   if (state.mascot) {
     applyGuide();
+    syncDevice(); // record this returning device (name/guide/progress)
     if (arrivalStopId) { logEvent("scan", arrivalStopId); startArrival(arrivalStopId); }
     else goHome();
   } else {
@@ -162,7 +206,7 @@ function renderMascotButtons(container, instant) {
     b.innerHTML = `<span class="em">${m.emoji}</span><span class="nm">${m.name}</span>`;
     b.onclick = () => {
       if (instant) {
-        state.mascot = m.id; save(); applyGuide();
+        state.mascot = m.id; save(); applyGuide(); syncDevice();
         [...container.children].forEach((c) => c.classList.remove("sel"));
         b.classList.add("sel");
         homeSpeak(`Hi! I'm ${m.name} ${m.emoji} — let's explore together!`);
@@ -182,7 +226,7 @@ $("startBtn").onclick = () => {
   if (!pickerChoice) return;
   state.mascot = pickerChoice;
   state.name = $("nameInput").value.trim();
-  save(); applyGuide();
+  save(); applyGuide(); syncDevice();
   if (arrivalStopId) startArrival(arrivalStopId);
   else goHome();
 };
@@ -224,6 +268,7 @@ let pendingStopId = null;
 function clearScanTimers() { scanTimers.forEach(clearTimeout); scanTimers = []; }
 function startArrival(id, viaQR = true) {
   const s = stopById(id); if (!s) return;
+  armBack();
   pendingStopId = id;
   const el = $("scanAnim");
   el.className = "scan-anim finding";
@@ -267,7 +312,7 @@ function skipArrival() {
 
 function earnSticker(id) {
   const first = !state.visited.includes(id);
-  if (first) { state.visited.push(id); save(); }
+  if (first) { state.visited.push(id); save(); syncDevice(); }
   refreshProgress();
   return first;
 }
@@ -278,6 +323,7 @@ function earnSticker(id) {
 let activeStop = null;
 function openStop(id) {
   const s = stopById(id); if (!s) return;
+  armBack();
   activeStop = s;
   const found = state.visited.includes(id);
   $("cardGuide").textContent = mascotById(state.mascot).emoji;
@@ -306,6 +352,7 @@ function closeStop() { $("stopModal").classList.add("hidden"); stopSpeaking(); }
 
 // ---------- passport ----------
 function openPassport() {
+  armBack();
   const grid = $("passportGrid"); grid.innerHTML = "";
   STOPS.forEach((s) => {
     const got = state.visited.includes(s.id);
@@ -321,6 +368,7 @@ function openPassport() {
 
 // ---------- finish ----------
 function finish() {
+  armBack();
   logEvent("complete", null);
   $("finishName").textContent = state.name ? `You did it, ${state.name}! 🎉` : "You did it! 🎉";
   $("finishStickers").textContent = STOPS.map((s) => s.sticker).join(" ");
@@ -398,11 +446,13 @@ $("btnMap").onclick = () => {
 };
 $("btnPassport").onclick = openPassport;
 $("btnChangeGuide").onclick = () => {
+  armBack();
   [...$("guideGrid").children].forEach((c, i) => c.classList.toggle("sel", MASCOTS[i].id === state.mascot));
   $("guideModal").classList.remove("hidden");
 };
 $("closeGuide").onclick = () => $("guideModal").classList.add("hidden");
-$("btnHome").onclick = goHome;
+$("btnHome").onclick = () => { if (backGuard) { try { history.back(); } catch { goMenu(); } } else goMenu(); };
+$("btnDelete").onclick = deleteMyData;
 $("homeGuideBtn").onclick = () => {
   const m = mascotById(state.mascot);
   homeSpeak(m.cheer[Math.floor(Math.random() * m.cheer.length)] + " 🌟");
@@ -426,7 +476,7 @@ $("playAgain").onclick = () => {
 // ---------- install / Add to Home Screen ----------
 let deferredPrompt = null;
 try {
-  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; });
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; maybePromptInstall(); });
   window.addEventListener("appinstalled", () => { $("installBar").classList.add("hidden"); });
 } catch {}
 function isStandalone() {

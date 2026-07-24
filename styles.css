@@ -178,6 +178,9 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .menu-btn.pass{background:#ff9d3d;}
 .menu-btn.guide{background:#c79bff;}
 .home-hint{color:#5b7a92;font-weight:700;font-size:13px;background:rgba(255,255,255,.6);border-radius:14px;padding:9px 12px;}
+.home-danger{margin-top:14px;background:none;border:none;color:#c0556a;font-family:inherit;font-weight:700;
+  font-size:13px;text-decoration:underline;cursor:pointer;}
+.home-danger:active{opacity:.7;}
 
 /* ---------- Scan arrival animation ---------- */
 .scan-anim{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
