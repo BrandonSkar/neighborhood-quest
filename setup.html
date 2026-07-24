@@ -51,7 +51,7 @@
       Tip: host the folder for free on <b>GitHub Pages</b>, <b>Netlify Drop</b>, or <b>Cloudflare Pages</b>, then paste that link above.
       Each code opens the map straight to its stop. (This page needs internet to draw the codes; the game itself works offline once loaded.)
     </p>
-    <p class="note">Just testing at home? You don't need QR codes at all — open <b>index.html</b> and tap the spots on the map.</p>
+    <p class="note">Just testing at home? Open <b>index.html</b> and add a stop's code to the address — e.g. <b>index.html?c=b7c218</b> — to simulate scanning it. (Tapping a pin only shows info; scanning is the only way to stamp.)</p>
   </div>
 
   <div class="noprint" style="margin-bottom:12px;">
@@ -79,9 +79,10 @@
   }
   function build(base) {
     grid.innerHTML = "";
-    // Master "Start Here" code — put this on your flyer / front door to begin the quest.
+    // Optional plain app link (no stop) — handy for a flyer/poster to introduce the
+    // quest. NOT a starting point: every stop is independent and scannable in any order.
     const startUrl = base || "(enter your web address above)";
-    card("🚩", "START HERE (begin the quest)", startUrl, base, "");
+    card("🏠", "App link (optional — opens the app, no stop)", startUrl, base, "");
     // One unique-hex code per stop.
     STOPS.forEach((s) => {
       const url = base
