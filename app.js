@@ -54,8 +54,8 @@ function show(id) {
 // ---------- Leaflet map (OpenStreetMap tiles, GPS-pinned stops) ----------
 let lmap = null;
 const leafMarkers = {};
-const MAP_CENTER = [47.2545, -122.2095];              // Lakeland Hills cluster
-const MAP_BOUNDS = [[47.238, -122.235], [47.308, -122.185]]; // keep panning in-area
+const MAP_CENTER = [47.2561, -122.2099];              // Lakeland Hills cluster
+const MAP_BOUNDS = [[47.238, -122.234], [47.278, -122.186]]; // keep panning in-area
 
 function stopIcon(s) {
   const found = state.visited.includes(s.id);
@@ -85,6 +85,10 @@ function initLeaflet() {
     m.on("click", () => openStop(s.id));               // view-only: opens the card, never stamps
     leafMarkers[s.id] = m;
   });
+
+  // frame all the stops on first load
+  const pts = STOPS.filter((s) => s.ll).map((s) => s.ll);
+  if (pts.length) lmap.fitBounds(L.latLngBounds(pts), { padding: [45, 45], maxZoom: 16 });
 
   const labelToggle = () => $("map").classList.toggle("labels-off", lmap.getZoom() < 15);
   lmap.on("zoomend", labelToggle); labelToggle();

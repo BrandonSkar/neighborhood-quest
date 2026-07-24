@@ -18,7 +18,7 @@ const STOPS = [
   {
     id: 1, name: "Terminal Park School", emoji: "🏫", sticker: "🎒", color: "#ff9db1", pos: [20, 10],
     code: "a1f4c9",
-    ll: [47.298, -122.2252],
+    ll: [47.267724, -122.222273],
     intro: "You're at Terminal Park Elementary — welcome, explorer!",
     easy: "Give a big cheer for school! Find something with the letter A on it. 🔤",
     bonus: "How many letters are in the word SCHOOL? Try spelling it out loud!",
@@ -36,7 +36,7 @@ const STOPS = [
   {
     id: 3, name: "Evergreen Park", emoji: "🌲", sticker: "🌲", color: "#ffb24b", pos: [69, 34],
     code: "3ed0aa",
-    ll: [47.2588, -122.1985],
+    ll: [47.26072, -122.195542],
     intro: "Evergreen Park — surrounded by tall green trees!",
     easy: "Find the tallest tree you can and give it a big high-five! 🌲",
     bonus: "Evergreen trees stay green all year long. Can you name another thing that's always green?",
@@ -45,7 +45,7 @@ const STOPS = [
   {
     id: 4, name: "Alcove Park", emoji: "🌳", sticker: "🍃", color: "#7ecb73", pos: [58, 65],
     code: "c95b2f",
-    ll: [47.2505, -122.203],
+    ll: [47.251373, -122.200515],
     intro: "Alcove Park — a little green hideaway!",
     easy: "Find a leaf and see how many colors are on it. 🍃",
     bonus: "Pick up a leaf and look closely — how many little lines (veins) can you spot?",
