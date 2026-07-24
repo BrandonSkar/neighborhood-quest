@@ -78,14 +78,36 @@ function initLeaflet() {
     maxZoom: 19, subdomains: "abcd",
   }).addTo(lmap);
 
-  // cartoon greenery drawn UNDER the pins: a soft green blob + little trees on parks
+  // --- cartoon greenery from OpenStreetMap (parks + woods), drawn UNDER the pins ---
   const treeIcon = L.divIcon({ className: "tree-deco", html: "🌲", iconSize: [24, 24], iconAnchor: [12, 20] });
+  const treeIcon2 = L.divIcon({ className: "tree-deco", html: "🌳", iconSize: [24, 24], iconAnchor: [12, 20] });
+  if (window.NQ_GREEN) {
+    L.geoJSON(window.NQ_GREEN, {
+      interactive: false,
+      style: (f) => f.properties.kind === "wood"
+        ? { weight: 0, fillColor: "#9ad97f", fillOpacity: 0.5 }
+        : { weight: 0, fillColor: "#a6e08a", fillOpacity: 0.58 },
+    }).addTo(lmap);
+    // scatter cartoon trees over the greenery (more on the bigger woods)
+    let trees = 0;
+    for (const f of window.NQ_GREEN.features) {
+      if (trees > 90) break;
+      const ring = f.geometry.coordinates[0];
+      let mnx = 1e9, mny = 1e9, mxx = -1e9, mxy = -1e9, cx = 0, cy = 0;
+      for (const [x, y] of ring) { if (x < mnx) mnx = x; if (y < mny) mny = y; if (x > mxx) mxx = x; if (y > mxy) mxy = y; cx += x; cy += y; }
+      cx /= ring.length; cy /= ring.length;
+      const w = mxx - mnx, h = mxy - mny, big = (w * h) > 0.000004;
+      const spots = (f.properties.kind === "wood" && big)
+        ? [[cy, cx], [cy + h * 0.22, cx - w * 0.22], [cy - h * 0.22, cx + w * 0.22], [cy + h * 0.15, cx + w * 0.2]]
+        : [[cy, cx]];
+      for (const p of spots) { if (trees > 90) break; L.marker(p, { icon: trees % 3 ? treeIcon : treeIcon2, interactive: false, keyboard: false }).addTo(lmap); trees++; }
+    }
+  }
+  // guaranteed green blob on each park stop (in case OSM lacks it)
   STOPS.forEach((s) => {
     if (!s.ll || !s.park) return;
-    L.circle(s.ll, { radius: 60, weight: 0, fillColor: "#8fd873", fillOpacity: 0.5, interactive: false }).addTo(lmap);
-    [[0.00045, -0.0005], [-0.0004, 0.0005], [0.00025, 0.00055], [-0.0002, -0.0004]].forEach((o) => {
-      L.marker([s.ll[0] + o[0], s.ll[1] + o[1]], { icon: treeIcon, interactive: false, keyboard: false }).addTo(lmap);
-    });
+    L.circle(s.ll, { radius: 55, weight: 0, fillColor: "#a6e08a", fillOpacity: 0.5, interactive: false }).addTo(lmap);
+    [[0.0004, -0.0004], [-0.00035, 0.00045]].forEach((o) => L.marker([s.ll[0] + o[0], s.ll[1] + o[1]], { icon: treeIcon, interactive: false, keyboard: false }).addTo(lmap));
   });
 
   STOPS.forEach((s) => {
@@ -102,6 +124,11 @@ function initLeaflet() {
 
   const labelToggle = () => $("map").classList.toggle("labels-off", lmap.getZoom() < 15);
   lmap.on("zoomend", labelToggle); labelToggle();
+
+  // cartoon compass in the corner
+  const compass = L.control({ position: "topright" });
+  compass.onAdd = () => { const d = L.DomUtil.create("div", "nq-compass"); d.innerHTML = '<div class="rose"><b>N</b><i></i></div>'; return d; };
+  compass.addTo(lmap);
 }
 
 function showMap() {

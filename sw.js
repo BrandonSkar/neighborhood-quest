@@ -12,6 +12,7 @@ const SHELL = [
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
+  "./greenery.js",
   "./vendor/leaflet/leaflet.js",
   "./vendor/leaflet/leaflet.css",
 ];

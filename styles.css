@@ -59,6 +59,17 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .leaflet-tile{filter:saturate(1.4) brightness(1.06) contrast(0.9);}
 .tree-deco{font-size:20px;line-height:24px;text-align:center;background:none;border:none;
   filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));}
+/* cartoon compass control */
+.nq-compass{margin:10px;}
+.nq-compass .rose{width:44px;height:44px;border-radius:50%;background:#fff8e7;border:3px solid #caa76a;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;
+  box-shadow:0 3px 6px rgba(0,0,0,.3);}
+.nq-compass .rose b{position:absolute;top:1px;font-size:10px;font-weight:800;color:#7a5a2a;}
+.nq-compass .rose i{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-bottom:15px solid #e07a5f;margin-top:7px;}
+/* storybook vignette frame around the map */
+.map-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:400;
+  box-shadow:inset 0 0 46px rgba(80,60,35,.30);}
 /* GPS map pins: colored circle badge with the stop emoji + a downward point */
 .qpin-wrap{background:none;border:none;}
 .qpin{position:relative;width:40px;height:40px;}
