@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   if (!redis) { res.status(200).json({ connected: false }); return; }
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const [total, completions, todayN, uniq, byStop, mascots, recentRaw] = await Promise.all([
+    const [total, completions, todayN, uniq, byStop, mascots, recentRaw, profilesRaw] = await Promise.all([
       redis.get(P + "scans:total"),
       redis.get(P + "completions"),
       redis.get(P + "scans:day:" + today),
@@ -21,7 +21,19 @@ export default async function handler(req, res) {
       redis.hgetall(P + "scans:byStop"),
       redis.hgetall(P + "mascots"),
       redis.lrange(P + "recent", 0, 24),
+      redis.hgetall(P + "profiles"),
     ]);
+
+    const players = Object.values(profilesRaw || {})
+      .map((v) => { try { return typeof v === "string" ? JSON.parse(v) : v; } catch { return null; } })
+      .filter((p) => p && p.id)
+      .map((p) => ({
+        id: p.id, name: p.name || "", mascot: p.mascot || "",
+        found: Array.isArray(p.visited) ? p.visited.length : 0,
+        lifetimeFound: p.lifetimeFound || 0, seasonsPlayed: p.seasonsPlayed || 0,
+        season: p.season == null ? null : p.season, updated: p.updated || 0,
+      }))
+      .sort((a, b) => (b.updated || 0) - (a.updated || 0));
 
     const perStop = Object.entries(byStop || {})
       .map(([stop_id, n]) => ({ stop_id: +stop_id, n: +n }))
@@ -41,7 +53,8 @@ export default async function handler(req, res) {
       uniqueVisitors: Number(uniq || 0),
       completions: Number(completions || 0),
       today: Number(todayN || 0),
-      perStop, mascots: mascotArr, recent,
+      playerCount: players.length,
+      perStop, mascots: mascotArr, recent, players,
     });
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });

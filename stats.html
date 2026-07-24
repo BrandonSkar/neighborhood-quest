@@ -39,7 +39,7 @@
 <body>
 <div class="wrap">
   <h1>🗺️ Quest <span>Dashboard</span><span id="mode" class="badge local">local</span></h1>
-  <p class="sub">Anonymous scan activity — no names, no locations, just counts.</p>
+  <p class="sub">Player progress and scan activity for your quest.</p>
 
   <div class="row">
     <button onclick="loadStats()">🔄 Refresh</button>
@@ -51,6 +51,14 @@
     <div class="stat"><div class="n b" id="cUniq">0</div><div class="l">Unique visitors</div></div>
     <div class="stat"><div class="n c" id="cToday">0</div><div class="l">Scans today</div></div>
     <div class="stat"><div class="n d" id="cComp">0</div><div class="l">Quests finished</div></div>
+    <div class="stat"><div class="n" id="cPlayers" style="color:#c79bff">0</div><div class="l">Players</div></div>
+  </div>
+
+  <div class="panel" id="playersPanel">
+    <h2>Players &amp; progress</h2>
+    <table><thead><tr><th>Player</th><th>This season</th><th>All-time</th><th>Season</th><th>Last active</th></tr></thead>
+    <tbody id="players"></tbody></table>
+    <div id="playersEmpty" class="muted" style="display:none;">No players yet — once someone picks a guide, they'll appear here.</div>
   </div>
 
   <div class="panel">
@@ -76,6 +84,11 @@
 <script>
 const stopName = (id) => { const s = STOPS.find(s=>s.id==id); return s ? s.emoji+" "+s.name : "Stop "+id; };
 const mascotName = (id) => { const m = MASCOTS.find(m=>m.id==id); return m ? m.emoji+" "+m.name : id; };
+const mascotEmoji = (id) => { const m = MASCOTS.find(m=>m.id==id); return m ? m.emoji : "🙂"; };
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function timeAgo(ms){ if(!ms) return "—"; const s=(Date.now()-ms)/1000;
+  if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago";
+  if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; }
 
 function bars(container, rows, labelFn, max){
   container.innerHTML = "";
@@ -98,6 +111,26 @@ function render(d, live){
   document.getElementById("cUniq").textContent = d.uniqueVisitors||0;
   document.getElementById("cToday").textContent = d.today!=null ? d.today : "—";
   document.getElementById("cComp").textContent = d.completions||0;
+  document.getElementById("cPlayers").textContent = d.playerCount || (d.players ? d.players.length : 0) || 0;
+
+  // Players & progress
+  const players = d.players || [];
+  const ptbody = document.getElementById("players"), pempty = document.getElementById("playersEmpty");
+  if(players.length){
+    pempty.style.display = "none";
+    const total = STOPS.length;
+    ptbody.innerHTML = players.map(p => {
+      const name = (p.name && p.name.trim()) ? escapeHtml(p.name) : "<span class='muted'>(no name)</span>";
+      return `<tr>
+        <td>${mascotEmoji(p.mascot)} <b>${name}</b></td>
+        <td>🏅 ${p.found}/${total}${p.found>=total?' ✅':''}</td>
+        <td>${p.lifetimeFound}</td>
+        <td>${p.season==null?'—':p.season}</td>
+        <td class="muted">${timeAgo(p.updated)}</td></tr>`;
+    }).join("");
+  } else {
+    ptbody.innerHTML = ""; pempty.style.display = "";
+  }
 
   const per = (d.perStop||[]).slice().sort((a,b)=>a.stop_id-b.stop_id);
   const max = Math.max(1, ...per.map(r=>r.n));
