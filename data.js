@@ -1,3 +1,8 @@
+// Bump this each time you set NEW locations (a new "season"). On the next app
+// open, every device resets its stamps automatically but KEEPS its name + guide,
+// and rolls the old count into its lifetime total.
+const SEASON = 1;
+
 // ---- Guides the kid can choose from ----
 const MASCOTS = [
   { id: "fox",    name: "Scout",   emoji: "🦊", color: "#ff8a3d", cheer: ["Wow, you found it!", "Adventure time!", "You're a super explorer!"] },

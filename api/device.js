@@ -36,6 +36,9 @@ export default async function handler(req, res) {
     const visited = Array.isArray(b.visited)
       ? b.visited.filter((n) => Number.isInteger(n)).slice(0, 50)
       : [];
+    const season = Number.isInteger(b.season) ? b.season : null;                 // current season
+    const lifetimeFound = Number.isInteger(b.lifetimeFound) ? b.lifetimeFound : 0; // all-time treasures
+    const seasonsPlayed = Number.isInteger(b.seasonsPlayed) ? b.seasonsPlayed : 0;
     const now = Date.now();
 
     // preserve the original "created" time if this device already has a record
@@ -45,7 +48,7 @@ export default async function handler(req, res) {
       if (prev && typeof prev === "object" && prev.created) created = prev.created;
     } catch { /* ignore */ }
 
-    const record = { id: session, name, mascot, visited, created, updated: now };
+    const record = { id: session, name, mascot, visited, season, lifetimeFound, seasonsPlayed, created, updated: now };
     await redis.hset(PROFILES, { [session]: record }); // stored as one JSON value
 
     res.status(200).json({ ok: true });

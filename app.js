@@ -53,7 +53,8 @@ function syncDevice() {
   try {
     fetch("/api/device", {
       method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
-      body: JSON.stringify({ session: sid(), name: state.name || "", mascot: state.mascot || "", visited: state.visited || [] }),
+      body: JSON.stringify({ session: sid(), name: state.name || "", mascot: state.mascot || "", visited: state.visited || [],
+        season: SEASON, lifetimeFound: state.lifetimeFound || 0, seasonsPlayed: state.seasonsPlayed || 0 }),
     }).catch(() => {});
   } catch {}
 }
@@ -187,6 +188,16 @@ function boot() {
   renderMascotButtons($("guideGrid"), true);
 
   if (state.mascot) {
+    if (state.season === undefined) {
+      state.season = SEASON; save();                 // grandfather existing players into the current season
+    } else if (state.season !== SEASON) {
+      // NEW season (new locations): keep name + guide, reset stamps, bank the lifetime total
+      state.lifetimeFound = (state.lifetimeFound || 0) + (state.visited ? state.visited.length : 0);
+      state.seasonsPlayed = (state.seasonsPlayed || 0) + 1;
+      state.visited = [];
+      state.season = SEASON;
+      save();
+    }
     applyGuide();
     syncDevice(); // record this returning device (name/guide/progress)
     if (arrivalStopId) { logEvent("scan", arrivalStopId); startArrival(arrivalStopId); }
@@ -226,6 +237,7 @@ $("startBtn").onclick = () => {
   if (!pickerChoice) return;
   state.mascot = pickerChoice;
   state.name = $("nameInput").value.trim();
+  state.season = SEASON; state.lifetimeFound = 0; state.seasonsPlayed = 0;
   save(); applyGuide(); syncDevice();
   if (arrivalStopId) startArrival(arrivalStopId);
   else goHome();
