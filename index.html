@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Lakeland Hills Quest 🗺️</title>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <!-- PWA / Add to Home Screen -->
 <link rel="manifest" href="manifest.webmanifest" />
 <meta name="theme-color" content="#4aa8ff" />
@@ -64,175 +65,9 @@
   </header>
 
   <div class="map-wrap">
-    <div id="map" class="map">
-     <div id="mapWorld" class="map-world">
-      <svg viewBox="0 0 1520 1230" preserveAspectRatio="none" class="map-art" aria-hidden="true">
-        <defs>
-          <g id="house"><rect x="-11" y="-8" width="22" height="16" rx="2" fill="#e7ddc9" stroke="#cbbea0" stroke-width="1.2"/></g>
-          <g id="tree"><circle r="13" fill="#8bcb70"/><circle cx="-8" cy="5" r="9" fill="#9ed685"/><circle cx="8" cy="5" r="9" fill="#9ed685"/><circle cx="0" cy="-4" r="9" fill="#a9dd90"/></g>
-        </defs>
-
-        <rect x="0" y="0" width="1520" height="1230" fill="#eef1e7"/>
-
-        <!-- greenery / wooded areas -->
-        <g fill="#d3e9b6">
-          <ellipse cx="560" cy="140" rx="330" ry="150"/>
-          <ellipse cx="120" cy="330" rx="150" ry="240"/>
-          <ellipse cx="1340" cy="330" rx="270" ry="330"/>
-          <ellipse cx="1150" cy="730" rx="230" ry="230"/>
-          <ellipse cx="880" cy="700" rx="180" ry="150"/>
-          <ellipse cx="300" cy="1060" rx="230" ry="150"/>
-          <ellipse cx="720" cy="1160" rx="270" ry="120"/>
-          <ellipse cx="1420" cy="1080" rx="200" ry="180"/>
-          <ellipse cx="150" cy="720" rx="120" ry="150"/>
-        </g>
-
-        <!-- water: Lake Tapps (SE) + ponds -->
-        <path d="M1360 940 Q1460 900 1520 895 L1520 1230 L1210 1230 Q1230 1070 1330 1005 Q1362 980 1360 940 Z" fill="#a9d8ef"/>
-        <text transform="translate(1395 985) rotate(-22)" font-size="26" fill="#3f92c0" font-weight="bold" opacity=".85">Lake Tapps</text>
-        <g fill="#a9d8ef">
-          <ellipse cx="118" cy="185" rx="36" ry="20"/>
-          <ellipse cx="66" cy="290" rx="24" ry="42"/>
-          <ellipse cx="150" cy="120" rx="22" ry="14"/>
-        </g>
-
-        <!-- parks -->
-        <g>
-          <ellipse cx="370" cy="66" rx="56" ry="34" fill="#a7d374"/>
-          <ellipse cx="615" cy="450" rx="60" ry="44" fill="#a7d374"/>
-          <ellipse cx="1050" cy="420" rx="54" ry="40" fill="#a7d374"/>
-          <ellipse cx="875" cy="800" rx="44" ry="32" fill="#a7d374"/>
-          <ellipse cx="495" cy="575" rx="40" ry="30" fill="#a7d374"/>
-          <ellipse cx="590" cy="1030" rx="56" ry="40" fill="#a7d374"/>
-        </g>
-
-        <!-- ROADS -->
-        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <g stroke="#d8d8cd" stroke-width="12">
-            <path d="M250 380 Q360 350 450 400 Q520 440 470 500 Q400 545 320 515"/>
-            <path d="M300 430 Q380 470 430 545"/>
-            <path d="M520 400 Q600 380 662 422"/>
-            <path d="M470 645 Q560 665 645 645 Q705 628 722 560"/>
-            <path d="M300 705 Q420 695 520 725 Q600 750 560 820"/>
-            <path d="M340 785 Q300 865 362 925 Q432 972 522 942"/>
-            <path d="M560 905 Q655 882 735 912"/>
-            <path d="M700 785 Q800 765 900 795 Q962 815 942 882 Q900 942 820 932"/>
-            <path d="M760 835 Q772 905 732 952"/>
-            <path d="M955 475 Q1002 525 992 592"/>
-            <path d="M1000 505 Q1062 508 1112 498"/>
-            <path d="M430 252 Q520 232 600 262"/>
-            <path d="M200 305 Q262 262 332 292"/>
-            <path d="M620 700 Q660 800 640 900"/>
-          </g>
-          <g stroke="#ffffff" stroke-width="7">
-            <path d="M250 380 Q360 350 450 400 Q520 440 470 500 Q400 545 320 515"/>
-            <path d="M300 430 Q380 470 430 545"/>
-            <path d="M520 400 Q600 380 662 422"/>
-            <path d="M470 645 Q560 665 645 645 Q705 628 722 560"/>
-            <path d="M300 705 Q420 695 520 725 Q600 750 560 820"/>
-            <path d="M340 785 Q300 865 362 925 Q432 972 522 942"/>
-            <path d="M560 905 Q655 882 735 912"/>
-            <path d="M700 785 Q800 765 900 795 Q962 815 942 882 Q900 942 820 932"/>
-            <path d="M760 835 Q772 905 732 952"/>
-            <path d="M955 475 Q1002 525 992 592"/>
-            <path d="M1000 505 Q1062 508 1112 498"/>
-            <path d="M430 252 Q520 232 600 262"/>
-            <path d="M200 305 Q262 262 332 292"/>
-            <path d="M620 700 Q660 800 640 900"/>
-          </g>
-          <g stroke="#e3ce97" stroke-width="21">
-            <path d="M95 0 Q80 300 95 620 Q108 900 135 1230"/>
-            <path d="M150 300 Q300 340 375 470 Q425 560 470 650 Q560 745 600 875 Q625 1010 610 1130"/>
-            <path d="M375 470 Q390 350 440 250 Q470 195 505 150"/>
-            <path d="M700 10 Q820 110 900 300 Q985 470 1085 650 Q1190 840 1290 1010"/>
-            <path d="M1085 405 L1520 400"/>
-            <path d="M55 855 Q210 990 440 1055 Q660 1105 860 1030 Q1060 955 1190 850 Q1330 725 1430 695"/>
-            <path d="M700 1095 Q860 1035 1010 1015 Q1160 995 1310 1035"/>
-            <path d="M1305 560 Q1315 780 1300 1030"/>
-            <path d="M680 320 Q690 520 680 720 Q672 830 650 905"/>
-            <path d="M905 470 Q985 478 1065 468"/>
-          </g>
-          <g stroke="#ffe9a8" stroke-width="14">
-            <path d="M95 0 Q80 300 95 620 Q108 900 135 1230"/>
-            <path d="M150 300 Q300 340 375 470 Q425 560 470 650 Q560 745 600 875 Q625 1010 610 1130"/>
-            <path d="M375 470 Q390 350 440 250 Q470 195 505 150"/>
-            <path d="M700 10 Q820 110 900 300 Q985 470 1085 650 Q1190 840 1290 1010"/>
-            <path d="M1085 405 L1520 400"/>
-            <path d="M55 855 Q210 990 440 1055 Q660 1105 860 1030 Q1060 955 1190 850 Q1330 725 1430 695"/>
-            <path d="M700 1095 Q860 1035 1010 1015 Q1160 995 1310 1035"/>
-            <path d="M1305 560 Q1315 780 1300 1030"/>
-            <path d="M680 320 Q690 520 680 720 Q672 830 650 905"/>
-            <path d="M905 470 Q985 478 1065 468"/>
-          </g>
-          <g stroke="#ffffff" stroke-width="2.5" stroke-dasharray="2 22" opacity=".7">
-            <path d="M150 300 Q300 340 375 470 Q425 560 470 650 Q560 745 600 875 Q625 1010 610 1130"/>
-            <path d="M55 855 Q210 990 440 1055 Q660 1105 860 1030 Q1060 955 1190 850 Q1330 725 1430 695"/>
-            <path d="M700 10 Q820 110 900 300 Q985 470 1085 650 Q1190 840 1290 1010"/>
-          </g>
-        </g>
-
-        <!-- houses (lined up along the streets) -->
-        <g>
-          <use href="#house" x="280" y="400"/><use href="#house" x="322" y="410"/><use href="#house" x="364" y="405"/><use href="#house" x="406" y="416"/>
-          <use href="#house" x="300" y="452"/><use href="#house" x="342" y="460"/><use href="#house" x="384" y="454"/><use href="#house" x="426" y="462"/>
-          <use href="#house" x="300" y="502"/><use href="#house" x="346" y="507"/><use href="#house" x="392" y="502"/><use href="#house" x="432" y="510"/>
-          <use href="#house" x="322" y="722"/><use href="#house" x="372" y="727"/><use href="#house" x="422" y="722"/><use href="#house" x="482" y="732"/>
-          <use href="#house" x="342" y="782"/><use href="#house" x="402" y="787"/><use href="#house" x="462" y="782"/><use href="#house" x="522" y="790"/>
-          <use href="#house" x="362" y="852"/><use href="#house" x="432" y="857"/><use href="#house" x="502" y="852"/>
-          <use href="#house" x="722" y="802"/><use href="#house" x="782" y="807"/><use href="#house" x="842" y="802"/><use href="#house" x="902" y="812"/>
-          <use href="#house" x="732" y="862"/><use href="#house" x="802" y="867"/><use href="#house" x="872" y="862"/><use href="#house" x="932" y="870"/>
-          <use href="#house" x="762" y="922"/><use href="#house" x="832" y="927"/><use href="#house" x="902" y="922"/>
-          <use href="#house" x="972" y="502"/><use href="#house" x="1022" y="507"/><use href="#house" x="1072" y="502"/><use href="#house" x="1112" y="510"/>
-          <use href="#house" x="986" y="542"/><use href="#house" x="1036" y="547"/><use href="#house" x="1086" y="542"/>
-          <use href="#house" x="520" y="982"/><use href="#house" x="580" y="987"/><use href="#house" x="640" y="982"/>
-          <use href="#house" x="560" y="1032"/><use href="#house" x="620" y="1037"/>
-          <use href="#house" x="470" y="300"/><use href="#house" x="512" y="292"/><use href="#house" x="554" y="298"/>
-        </g>
-
-        <!-- trees on the parks and greenbelts -->
-        <g>
-          <use href="#tree" x="350" y="60"/><use href="#tree" x="392" y="70"/><use href="#tree" x="620" y="440"/><use href="#tree" x="600" y="465"/>
-          <use href="#tree" x="1045" y="410"/><use href="#tree" x="1062" y="432"/><use href="#tree" x="875" y="792"/><use href="#tree" x="495" y="568"/>
-          <use href="#tree" x="580" y="1022"/><use href="#tree" x="602" y="1040"/>
-          <use href="#tree" x="500" y="150"/><use href="#tree" x="640" y="120"/><use href="#tree" x="720" y="180"/><use href="#tree" x="120" y="300"/>
-          <use href="#tree" x="90" y="420"/><use href="#tree" x="1320" y="250"/><use href="#tree" x="1400" y="360"/><use href="#tree" x="1250" y="470"/>
-          <use href="#tree" x="1160" y="700"/><use href="#tree" x="1220" y="780"/><use href="#tree" x="150" y="700"/><use href="#tree" x="120" y="780"/>
-          <use href="#tree" x="300" y="1040"/><use href="#tree" x="240" y="1100"/><use href="#tree" x="760" y="1140"/><use href="#tree" x="840" y="1170"/>
-          <use href="#tree" x="1430" y="1080"/>
-        </g>
-
-        <!-- labels -->
-        <g fill="#9c8f76" font-family="Segoe UI, sans-serif" font-weight="600" font-size="20">
-          <text transform="translate(360 430) rotate(56)">Lakeland Hills Way SE</text>
-          <text transform="translate(955 355) rotate(59)">Kersey Way SE</text>
-          <text transform="translate(300 1030) rotate(-16)">Lake Tapps Pkwy SE</text>
-          <text transform="translate(86 520) rotate(-88)">E Valley Hwy E</text>
-          <text transform="translate(1296 820) rotate(90)">182nd Ave E</text>
-          <text transform="translate(672 640) rotate(90)">Olive Ave SE</text>
-          <text transform="translate(1300 390)">53rd St SE</text>
-          <text transform="translate(760 1015) rotate(-8)">Sumner Tapps Hwy E</text>
-          <text x="370" y="112" text-anchor="middle" font-size="18" fill="#5b8a4a">Roegner Park</text>
-          <text x="540" y="640" font-size="26" font-weight="800" fill="#b0a487" letter-spacing="1">LAKELAND HILLS</text>
-          <text transform="translate(1360 1090) rotate(-20)" font-size="18" fill="#3f92c0" font-style="italic">Evergreen Point</text>
-        </g>
-
-        <!-- compass -->
-        <g transform="translate(1450,70)" opacity=".9">
-          <circle r="34" fill="#fff8e7" stroke="#caa76a" stroke-width="4"/>
-          <polygon points="0,-22 8,0 0,22 -8,0" fill="#e07a5f"/>
-          <text x="0" y="-36" text-anchor="middle" font-size="16" fill="#7a5a2a" font-weight="bold">N</text>
-        </g>
-      </svg>
-      <div id="markers"></div>
-     </div>
-
-     <div class="zoom-controls">
-       <button id="zoomIn" class="zoombtn" aria-label="Zoom in">+</button>
-       <button id="zoomOut" class="zoombtn" aria-label="Zoom out">&minus;</button>
-     </div>
+      <div id="map" class="map"></div>
     </div>
-  </div>
-</section>
+  </section>
 
 <!-- ============ STOP CARD (read-only from map / mission after scan) ============ -->
 <div id="stopModal" class="overlay hidden">
@@ -314,6 +149,7 @@
 <!-- TEMPORARY debug control — remove before launch -->
 <button id="debugReset" class="debug-reset" title="Debug: erase all saved data">🧹 Reset data</button>
 
+<script src="vendor/leaflet/leaflet.js"></script>
 <script src="data.js"></script>
 <script src="app.js"></script>
 </body>

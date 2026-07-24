@@ -48,117 +48,62 @@ function logEvent(event, stop) {
 // ---------- screen manager ----------
 function show(id) {
   ["picker", "home", "game"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
-  if (id === "game") setupMapView(false);
+  if (id === "game") showMap();
 }
 
-// ---------- pannable / zoomable map (clamped to boundaries) ----------
-const WORLD_W = 1520, WORLD_H = 1230;
-const COMPACT_RATIO = 1.7; // below minScale*this, pins collapse to little map dots
-let mapScale = 1, mapTx = 0, mapTy = 0, minScale = 0.2, maxScale = 1, mapReady = false, mapMoved = 0;
+// ---------- Leaflet map (OpenStreetMap tiles, GPS-pinned stops) ----------
+let lmap = null;
+const leafMarkers = {};
+const MAP_CENTER = [47.2545, -122.2095];              // Lakeland Hills cluster
+const MAP_BOUNDS = [[47.238, -122.235], [47.308, -122.185]]; // keep panning in-area
 
-function applyMapTransform() {
-  const world = $("mapWorld"), markers = $("markers");
-  if (world) world.style.transform = `translate(${mapTx}px,${mapTy}px) scale(${mapScale})`;
-  if (markers) {
-    const inv = 1 / mapScale;
-    // zoomed out far -> small Google-style pins; zoomed in -> full picture + name
-    markers.classList.toggle("compact", minScale > 0 && mapScale < minScale * COMPACT_RATIO);
-    for (const m of markers.children) m.style.transform = `translate(-50%,-50%) scale(${inv})`;
-  }
-}
-function clampMap() {
-  const map = $("map"); if (!map) return;
-  const vw = map.clientWidth, vh = map.clientHeight; if (!vw || !vh) return;
-  const ww = WORLD_W * mapScale, wh = WORLD_H * mapScale;
-  mapTx = ww <= vw ? (vw - ww) / 2 : Math.min(0, Math.max(vw - ww, mapTx));
-  mapTy = wh <= vh ? (vh - wh) / 2 : Math.min(0, Math.max(vh - wh, mapTy));
-}
-function setupMapView(reset) {
-  const map = $("map"); if (!map) return;
-  const vw = map.clientWidth, vh = map.clientHeight; if (!vw || !vh) return;
-  minScale = Math.min(vw / WORLD_W, vh / WORLD_H); // whole map fits (can't zoom out past this)
-  maxScale = minScale * 3.5;
-  if (reset || !mapReady) {
-    mapScale = Math.min(maxScale, minScale * 2.2);  // start zoomed in enough to show full icon pins (above COMPACT_RATIO)
-    mapTx = (vw - WORLD_W * mapScale) / 2;
-    mapTy = (vh - WORLD_H * mapScale) / 2;
-    mapReady = true;
-  } else {
-    mapScale = Math.min(maxScale, Math.max(minScale, mapScale));
-  }
-  clampMap(); applyMapTransform();
-}
-function zoomMap(factor) {
-  const map = $("map"); if (!map) return;
-  const vw = map.clientWidth, vh = map.clientHeight;
-  const cx = vw / 2, cy = vh / 2;
-  const ns = Math.min(maxScale, Math.max(minScale, mapScale * factor));
-  mapTx = cx - (cx - mapTx) * (ns / mapScale); // keep the screen centre pinned while zooming
-  mapTy = cy - (cy - mapTy) * (ns / mapScale);
-  mapScale = ns; clampMap(); applyMapTransform();
-}
-function initMapPan() {
-  const map = $("map"); if (!map || !map.addEventListener) return;
-  const pts = new Map();               // active pointers (for 1-finger pan + 2-finger pinch)
-  let dragging = false, sx = 0, sy = 0, stx = 0, sty = 0;
-  let pinch = null;                    // {dist, cx, cy, scale, tx, ty}
-  const rect = () => (map.getBoundingClientRect ? map.getBoundingClientRect() : { left: 0, top: 0 });
-
-  function startPinch() {
-    const [a, b] = [...pts.values()];
-    const r = rect();
-    pinch = {
-      dist: Math.hypot(a.x - b.x, a.y - b.y),
-      cx: (a.x + b.x) / 2 - r.left, cy: (a.y + b.y) / 2 - r.top,
-      scale: mapScale, tx: mapTx, ty: mapTy,
-    };
-  }
-  function doPinch() {
-    const [a, b] = [...pts.values()];
-    const dist = Math.hypot(a.x - b.x, a.y - b.y);
-    if (!pinch || !pinch.dist) return;
-    const ns = Math.min(maxScale, Math.max(minScale, pinch.scale * (dist / pinch.dist)));
-    const k = ns / pinch.scale;
-    mapTx = pinch.cx - (pinch.cx - pinch.tx) * k;
-    mapTy = pinch.cy - (pinch.cy - pinch.ty) * k;
-    mapScale = ns; mapMoved = 99; clampMap(); applyMapTransform();
-  }
-
-  map.addEventListener("pointerdown", (e) => {
-    if (e.target.closest && e.target.closest(".zoombtn")) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 1) { dragging = true; mapMoved = 0; sx = e.clientX; sy = e.clientY; stx = mapTx; sty = mapTy; map.classList.add("grabbing"); }
-    else if (pts.size === 2) { dragging = false; startPinch(); }
+function stopIcon(s) {
+  const found = state.visited.includes(s.id);
+  const color = found ? "#1fae67" : "#ef3d4e";        // green = found, red = not yet
+  return L.divIcon({
+    className: "qpin-wrap",
+    html: `<div class="qpin${found ? " found" : ""}" style="--pc:${color}"><span>${s.emoji}</span></div>`,
+    iconSize: [40, 48], iconAnchor: [20, 46], tooltipAnchor: [0, -42],
   });
-  map.addEventListener("pointermove", (e) => {
-    if (!pts.has(e.pointerId)) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size >= 2 && pinch) { doPinch(); return; }
-    if (dragging) {
-      const dx = e.clientX - sx, dy = e.clientY - sy;
-      mapMoved = Math.max(mapMoved, Math.hypot(dx, dy));
-      mapTx = stx + dx; mapTy = sty + dy; clampMap(); applyMapTransform();
-    }
-  });
-  function endPtr(e) {
-    pts.delete(e.pointerId);
-    if (pts.size < 2) pinch = null;
-    if (pts.size === 0) { dragging = false; map.classList.remove("grabbing"); }
-    else if (pts.size === 1) { const [p] = [...pts.values()]; dragging = true; mapMoved = 99; sx = p.x; sy = p.y; stx = mapTx; sty = mapTy; }
-  }
-  map.addEventListener("pointerup", endPtr);
-  map.addEventListener("pointercancel", endPtr);
-
-  const zi = $("zoomIn"), zo = $("zoomOut");
-  if (zi) zi.onclick = () => zoomMap(1.3);
-  if (zo) zo.onclick = () => zoomMap(1 / 1.3);
 }
-try { addEventListener("resize", () => setupMapView(false)); addEventListener("orientationchange", () => setTimeout(() => setupMapView(false), 250)); } catch {}
+
+function initLeaflet() {
+  if (lmap || typeof L === "undefined") return;
+  lmap = L.map("map", {
+    center: MAP_CENTER, zoom: 15, minZoom: 13, maxZoom: 18,
+    maxBounds: MAP_BOUNDS, maxBoundsViscosity: 0.85, zoomControl: true,
+  });
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>',
+    maxZoom: 19, subdomains: "abcd",
+  }).addTo(lmap);
+
+  STOPS.forEach((s) => {
+    if (!s.ll) return;
+    const m = L.marker(s.ll, { icon: stopIcon(s) }).addTo(lmap)
+      .bindTooltip(s.name, { permanent: true, direction: "bottom", className: "pin-label", offset: [0, 2] });
+    m.on("click", () => openStop(s.id));               // view-only: opens the card, never stamps
+    leafMarkers[s.id] = m;
+  });
+
+  const labelToggle = () => $("map").classList.toggle("labels-off", lmap.getZoom() < 15);
+  lmap.on("zoomend", labelToggle); labelToggle();
+
+  // DEV helper (remove for launch): tap the map to copy a spot's coordinates
+  lmap.on("click", (e) => {
+    const c = e.latlng.lat.toFixed(6) + ", " + e.latlng.lng.toFixed(6);
+    try { navigator.clipboard.writeText(c); } catch {}
+    say("📍 " + c + " (copied — for setting pin spots)");
+  });
+}
+
+function showMap() {
+  initLeaflet();
+  if (lmap) setTimeout(() => lmap.invalidateSize(), 0); // container was hidden; recompute size
+}
 
 // ---------- boot ----------
 function boot() {
-  buildMarkers();
-  initMapPan();
   $("progressTotal").textContent = STOPS.length;
   $("hpTotal").textContent = STOPS.length;
   renderMascotButtons($("mascotGrid"), false);
@@ -227,29 +172,9 @@ function homeSpeak(t) { $("homeSpeech").textContent = t; }
 function say(t) { $("speech").textContent = t; }
 
 // ---------- markers / map ----------
-function buildMarkers() {
-  const wrap = $("markers");
-  wrap.innerHTML = "";
-  STOPS.forEach((s) => {
-    const b = document.createElement("button");
-    b.className = "marker";
-    b.style.left = s.pos[0] + "%";
-    b.style.top = s.pos[1] + "%";
-    b.style.setProperty("--mc", s.color);
-    b.dataset.id = s.id;
-    b.innerHTML =
-      `<div class="mini"></div>` +
-      `<div class="pin">${s.emoji}<span class="stamp">${s.sticker}</span></div>` +
-      `<div class="lbl">${s.name}</div>`;
-    b.onclick = () => { if (mapMoved > 8) return; openStop(s.id); }; // ignore taps that were drags; map never stamps
-    wrap.appendChild(b);
-  });
-}
-// Every stop is independent (no order) — markers just show found vs not-found.
+// Every stop is independent (no order) — pins just show found (green) vs not (red).
 function refreshMarkers() {
-  [...$("markers").children].forEach((b) => {
-    b.classList.toggle("done", state.visited.includes(+b.dataset.id));
-  });
+  for (const s of STOPS) if (leafMarkers[s.id]) leafMarkers[s.id].setIcon(stopIcon(s));
 }
 function refreshProgress() {
   const n = state.visited.length, total = STOPS.length;

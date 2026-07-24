@@ -18,6 +18,7 @@ const STOPS = [
   {
     id: 1, name: "Terminal Park School", emoji: "🏫", sticker: "🎒", color: "#ff9db1", pos: [20, 10],
     code: "a1f4c9",
+    ll: [47.298, -122.2252],
     intro: "You're at Terminal Park Elementary — welcome, explorer!",
     easy: "Give a big cheer for school! Find something with the letter A on it. 🔤",
     bonus: "How many letters are in the word SCHOOL? Try spelling it out loud!",
@@ -26,6 +27,7 @@ const STOPS = [
   {
     id: 2, name: "Lakeland Hills Park", emoji: "🎡", sticker: "🛝", color: "#7ecb73", pos: [40, 36],
     code: "b7c218",
+    ll: [47.2595, -122.2113],
     intro: "Lakeland Hills Park! The big playground with room to run.",
     easy: "Go down a slide or swing up high — wheee! 🛝",
     bonus: "Riddle: I go up when you push and back when you pull. You sit on me at the park. What am I?",
@@ -34,6 +36,7 @@ const STOPS = [
   {
     id: 3, name: "Evergreen Park", emoji: "🌲", sticker: "🌲", color: "#ffb24b", pos: [69, 34],
     code: "3ed0aa",
+    ll: [47.2588, -122.1985],
     intro: "Evergreen Park — surrounded by tall green trees!",
     easy: "Find the tallest tree you can and give it a big high-five! 🌲",
     bonus: "Evergreen trees stay green all year long. Can you name another thing that's always green?",
@@ -42,6 +45,7 @@ const STOPS = [
   {
     id: 4, name: "Alcove Park", emoji: "🌳", sticker: "🍃", color: "#7ecb73", pos: [58, 65],
     code: "c95b2f",
+    ll: [47.2505, -122.203],
     intro: "Alcove Park — a little green hideaway!",
     easy: "Find a leaf and see how many colors are on it. 🍃",
     bonus: "Pick up a leaf and look closely — how many little lines (veins) can you spot?",
@@ -50,6 +54,7 @@ const STOPS = [
   {
     id: 5, name: "Sunrise Montessori", emoji: "🎓", sticker: "☀️", color: "#5ec8ff", pos: [50, 59],
     code: "d3a0e7",
+    ll: [47.2528, -122.2065],
     intro: "Sunrise Montessori — where little learners grow!",
     easy: "The sun rises in the east. Point which way you think is east! ☀️",
     bonus: "The sun rises in the east. So which direction does it set?",
@@ -58,6 +63,7 @@ const STOPS = [
   {
     id: 6, name: "Lakeland Hills School", emoji: "🏫", sticker: "📚", color: "#4ec5c1", pos: [32, 55],
     code: "e2477b",
+    ll: [47.2543, -122.2151],
     intro: "Lakeland Hills Elementary — right in the heart of the neighborhood!",
     easy: "Give the school a big wave and find a window to count. 🪟",
     bonus: "Guess how many windows are on the school, then count to check. Were you close?",
@@ -66,6 +72,7 @@ const STOPS = [
   {
     id: 7, name: "Dorothy Bothell Park", emoji: "🛝", sticker: "🌸", color: "#ff7aa8", pos: [33, 47],
     code: "f0819d",
+    ll: [47.2566, -122.2157],
     intro: "Dorothy Bothell Park — the little park with swings!",
     easy: "Find the swings and count how many there are! 🛝",
     bonus: "Riddle: I have a seat but no legs, and I swing back and forth all day. What am I?",
@@ -74,6 +81,7 @@ const STOPS = [
   {
     id: 8, name: "Sunset Park", emoji: "🌇", sticker: "🏆", color: "#ffd84b", pos: [39, 84],
     code: "9c6d31",
+    ll: [47.2459, -122.2119],
     intro: "Sunset Park — a golden place to explore!",
     easy: "Strike a pose like you're watching a beautiful sunset! 🌇",
     bonus: "How many colors can you spot in a real sunset? Try to name three!",
