@@ -14,7 +14,10 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   points at the nearest unfound stop. Works without GPS too — the dot just doesn't show.
 - **Missing-sticker fallback**: if a sign is gone, the child can stamp the stop anyway,
   but only when their phone confirms they're within ~150 m. Logged as a `sticker_missing`
-  event so `stats.html` shows which sign to reprint.
+  event so `stats.html` shows which sign to reprint — and it **emails the hider** (see
+  below) so you hear about a downed sign without checking the dashboard.
+- **Stamps are keyed by each stop's QR `code`**, not its position in the list, so adding,
+  deleting or reordering cards never re-points anyone's existing stamps.
 - **Lifetime totals + badges** on the home hub (all-time treasures, season, achievements)
   so returning players are rewarded across seasons.
 - **Anonymous scan tracking** (no names, no location) via two serverless functions
@@ -37,7 +40,21 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 2. **Storage → Connect Database →** an existing Upstash Redis store. It injects
    `KV_REST_API_URL` / `KV_REST_API_TOKEN` automatically — nothing is hard-coded.
 3. Redeploy. Tables/keys are created on the first scan. Visit `/stats.html` to watch
-   scans, and `/setup.html` to print the QR codes.
+   scans, and `/setup.html` (code **8979**) to place pins and print the QR codes.
+
+## Missing-sticker email alerts (optional)
+`api/scan.js` emails the hider when a child reports a sign is gone. It uses
+[Resend](https://resend.com) over plain REST — no extra npm dependency.
+
+1. Create a free Resend account and an **API key**.
+2. In Vercel → Settings → **Environment Variables**, add `RESEND_API_KEY`.
+3. Redeploy.
+
+Optional: `ALERT_EMAIL` (recipient, defaults to `branskar01@gmail.com`) and `ALERT_FROM`
+(sender, defaults to Resend's shared `onboarding@resend.dev`). Without a verified domain,
+Resend only delivers to your own account address. **Without `RESEND_API_KEY` the alert is
+skipped silently** — scans still log normally. One email per stop per 12 h, so a single
+broken sign can't flood your inbox.
 
 ## Local testing
 Open `index.html` directly. Simulate a scan with `index.html?c=b7c218`. The scan

@@ -11,6 +11,36 @@ const mascotById = (id) => MASCOTS.find((m) => m.id === id) || MASCOTS[0];
 const stopById = (id) => STOPS.find((s) => s.id === id);
 const $ = (id) => document.getElementById(id);
 
+// ---------- stamps are keyed by the stop's CODE, never its position ----------
+// A stop's `id` is just its slot in the published list, so it shifts whenever the
+// hider adds/removes/reorders a card. The QR `code` is stable for the life of a
+// card, so that's what we store — a re-ordered hunt keeps everyone's stamps right.
+//
+// foundCount() only counts stamps belonging to the CURRENT hunt, so leftover codes
+// from a previous set can never make the app think the quest is complete.
+const isFound = (s) => !!s && state.visited.includes(s.code);
+const foundStops = () => STOPS.filter(isFound);
+const foundCount = () => foundStops().length;
+
+// One-time upgrade of saves written before this change, plus a guard against any
+// non-string junk. Legacy entries were numeric ids into the built-in DEFAULT_STOPS.
+function migrateVisited() {
+  if (!Array.isArray(state.visited)) { state.visited = []; return; }
+  let changed = false;
+  const out = [];
+  for (const v of state.visited) {
+    if (typeof v === "string") { out.push(v); continue; }
+    changed = true;
+    if (typeof v === "number") {
+      const d = DEFAULT_STOPS.find((s) => s.id === v);
+      if (d) out.push(d.code);
+    }
+  }
+  // de-dupe while preserving order
+  state.visited = out.filter((c, i) => out.indexOf(c) === i);
+  if (changed || state.visited.length !== out.length) save();
+}
+
 // ---------- read the QR: ?c=<hex> (preferred) or ?stop=<n> ----------
 // Resolved AFTER loadConfig() runs (see start() at the bottom) so a code that
 // belongs to a freshly-published card matches the live card set, not the defaults.
@@ -42,10 +72,14 @@ function online() { return location.protocol === "http:" || location.protocol ==
 function logEvent(event, stop) {
   localBump(event, stop);
   if (online()) {
+    const s = stop ? stopById(stop) : null;
     try {
       fetch("/api/scan", {
         method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
-        body: JSON.stringify({ session: sid(), stop: stop || null, event, mascot: state.mascot || null }),
+        // stopName rides along so a "sticker missing" alert email can name the spot
+        // without the server having to re-read the published config
+        body: JSON.stringify({ session: sid(), stop: stop || null, event, mascot: state.mascot || null,
+          stopName: s ? s.name : null }),
       }).catch(() => {});
     } catch {}
   }
@@ -103,11 +137,31 @@ try { window.addEventListener("popstate", () => { backGuard = false; if (!atMenu
 // ---------- Leaflet map (OpenStreetMap tiles, GPS-pinned stops) ----------
 let lmap = null;
 const leafMarkers = {};
-const MAP_CENTER = [47.2561, -122.2099];              // Lakeland Hills cluster
-const MAP_BOUNDS = [[47.238, -122.234], [47.278, -122.186]]; // keep panning in-area
+const FALLBACK_CENTER = [47.2561, -122.2099];         // Lakeland Hills, used if nothing has coords
+
+// The pan-limit box is derived from wherever the hider actually dropped their pins,
+// so a hunt in a different neighborhood is reachable. (It used to be a hardcoded
+// rectangle, which rubber-banded the map away from any stop placed outside it.)
+function mapFrame() {
+  const pts = STOPS.filter((s) => s.ll).map((s) => s.ll);
+  if (!pts.length) return { center: FALLBACK_CENTER, bounds: null };
+  let minLa = 90, maxLa = -90, minLn = 180, maxLn = -180;
+  for (const [la, ln] of pts) {
+    if (la < minLa) minLa = la; if (la > maxLa) maxLa = la;
+    if (ln < minLn) minLn = ln; if (ln > maxLn) maxLn = ln;
+  }
+  // pad generously so kids can see context around the outermost stops, and so a
+  // single-stop hunt still gets a usable window instead of a zero-size box
+  const padLa = Math.max(0.012, (maxLa - minLa) * 0.6);
+  const padLn = Math.max(0.015, (maxLn - minLn) * 0.6);
+  return {
+    center: [(minLa + maxLa) / 2, (minLn + maxLn) / 2],
+    bounds: [[minLa - padLa, minLn - padLn], [maxLa + padLa, maxLn + padLn]],
+  };
+}
 
 function stopIcon(s) {
-  const found = state.visited.includes(s.id);
+  const found = isFound(s);
   const color = found ? "#1fae67" : "#ef3d4e";        // green = found, red = not yet
   return L.divIcon({
     className: "qpin-wrap",
@@ -118,9 +172,10 @@ function stopIcon(s) {
 
 function initLeaflet() {
   if (lmap || typeof L === "undefined") return;
+  const frame = mapFrame();
   lmap = L.map("map", {
-    center: MAP_CENTER, zoom: 15, minZoom: 13, maxZoom: 18,
-    maxBounds: MAP_BOUNDS, maxBoundsViscosity: 0.85, zoomControl: true,
+    center: frame.center, zoom: 15, minZoom: 13, maxZoom: 18,
+    maxBounds: frame.bounds || undefined, maxBoundsViscosity: 0.85, zoomControl: true,
   });
   L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
     attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>',
@@ -202,7 +257,7 @@ function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.ro
 function nearestUnfound(pos) {
   let best = null, bestD = Infinity;
   for (const s of STOPS) {
-    if (!s.ll || state.visited.includes(s.id)) continue;
+    if (!s.ll || isFound(s)) continue;
     const d = haversine(pos, s.ll);
     if (d < bestD) { bestD = d; best = s; }
   }
@@ -261,6 +316,7 @@ function updateHuntMeter() {
 
 // ---------- boot ----------
 function boot() {
+  migrateVisited();   // upgrade pre-code saves (numeric ids) before anything reads them
   $("progressTotal").textContent = STOPS.length;
   $("hpTotal").textContent = STOPS.length;
   renderMascotButtons($("mascotGrid"), false);
@@ -271,7 +327,7 @@ function boot() {
       state.season = SEASON; save();                 // grandfather existing players into the current season
     } else if (state.season !== SEASON) {
       // NEW season (new locations): keep name + guide, reset stamps, bank the lifetime total
-      state.lifetimeFound = (state.lifetimeFound || 0) + (state.visited ? state.visited.length : 0);
+      state.lifetimeFound = (state.lifetimeFound || 0) + foundCount();
       state.seasonsPlayed = (state.seasonsPlayed || 0) + 1;
       state.visited = [];
       state.season = SEASON;
@@ -347,7 +403,7 @@ function refreshMarkers() {
   for (const s of STOPS) if (leafMarkers[s.id]) leafMarkers[s.id].setIcon(stopIcon(s));
 }
 function refreshProgress() {
-  const n = state.visited.length, total = STOPS.length;
+  const n = foundCount(), total = STOPS.length;
   $("progressNow").textContent = n;
   $("hpNow").textContent = n;
   $("hpFill").style.width = (n / total * 100) + "%";
@@ -357,14 +413,14 @@ function refreshProgress() {
 
 // ---------- lifetime totals + badges on the home hub ----------
 function renderLifetime() {
-  const found = state.visited.length;
+  const found = foundCount();
   const total = (state.lifetimeFound || 0) + found;
   $("lifeTotal").textContent = total;
   $("lifeSeason").textContent = state.season || 1;
 
-  const parkIds = STOPS.filter((s) => s.park).map((s) => s.id);
-  const gotAllParks = parkIds.length > 0 && parkIds.every((id) => state.visited.includes(id));
-  const gotAll = found >= STOPS.length;
+  const parks = STOPS.filter((s) => s.park);
+  const gotAllParks = parks.length > 0 && parks.every(isFound);
+  const gotAll = STOPS.length > 0 && found >= STOPS.length;
   const badges = [
     { on: found >= 1,                    em: "🧭", label: "First Find" },
     { on: gotAllParks,                   em: "🌳", label: "Park Ranger" },
@@ -418,7 +474,7 @@ function finishArrival() {
   $("scanAnim").classList.add("hidden");
   maybePromptInstall(); // nudge "Add to Home Screen" after a scan
   const id = pendingStopId; pendingStopId = null;
-  if (state.visited.length >= STOPS.length) { show("game"); finish(); return; }
+  if (STOPS.length > 0 && foundCount() >= STOPS.length) { show("game"); finish(); return; }
   show("game");
   openStop(id);
 }
@@ -430,8 +486,9 @@ function skipArrival() {
 }
 
 function earnSticker(id) {
-  const first = !state.visited.includes(id);
-  if (first) { state.visited.push(id); save(); syncDevice(); }
+  const s = stopById(id); if (!s) return false;
+  const first = !isFound(s);
+  if (first) { state.visited.push(s.code); save(); syncDevice(); }
   refreshProgress();
   return first;
 }
@@ -444,7 +501,7 @@ function openStop(id) {
   const s = stopById(id); if (!s) return;
   armBack();
   activeStop = s;
-  const found = state.visited.includes(id);
+  const found = isFound(s);
   $("cardGuide").textContent = mascotById(state.mascot).emoji;
   $("stopName").textContent = s.name;
   $("stopAnswer").classList.add("hidden");
@@ -476,7 +533,7 @@ function openStop(id) {
 const NEAR_M = 150;
 function stickerGone() {
   const s = activeStop;
-  if (!s || !s.ll || state.visited.includes(s.id)) return;
+  if (!s || !s.ll || isFound(s)) return;
   if (!lastFix) {
     flashCardNote("Turn on location so we can check you're here, then try again. 📍");
     startGeo();
@@ -502,14 +559,15 @@ function openPassport() {
   armBack();
   const grid = $("passportGrid"); grid.innerHTML = "";
   STOPS.forEach((s) => {
-    const got = state.visited.includes(s.id);
+    const got = isFound(s);
     const d = document.createElement("div");
     d.className = "slot" + (got ? " got" : "");
     d.innerHTML = got ? `<span class="sticker">${s.sticker}</span><small>${s.name}</small>` : `<span class="q">❓</span>`;
     grid.appendChild(d);
   });
-  $("passportSub").textContent = state.visited.length >= STOPS.length
-    ? "You collected them ALL! 🎉" : `You have ${state.visited.length} of ${STOPS.length} treasures!`;
+  const n = foundCount();
+  $("passportSub").textContent = (STOPS.length > 0 && n >= STOPS.length)
+    ? "You collected them ALL! 🎉" : `You have ${n} of ${STOPS.length} treasures!`;
   $("passportModal").classList.remove("hidden");
 }
 
@@ -573,7 +631,7 @@ function bigConfetti() { spawn(160, 20); setTimeout(() => spawn(120, 18), 400); 
 // ---------- wire up ----------
 $("btnMap").onclick = () => {
   show("game"); refreshProgress();
-  const left = STOPS.length - state.visited.length;
+  const left = STOPS.length - foundCount();
   say(left > 0 ? `Explore the map and scan any QR sticker you find! ${left} treasure${left > 1 ? "s" : ""} left.` : "You found them all! 🏆");
 };
 $("btnPassport").onclick = openPassport;
@@ -600,7 +658,7 @@ $("bonusToggle").onclick = () => {
 $("revealBtn").onclick = () => $("stopAnswer").classList.remove("hidden");
 $("scanSkip").onclick = skipArrival;
 $("playAgain").onclick = () => {
-  state.visited = []; save();
+  state.visited = []; save(); syncDevice();   // keep the dashboard in step with the reset
   $("finishModal").classList.add("hidden");
   refreshProgress(); goHome();
 };

@@ -33,8 +33,13 @@ export default async function handler(req, res) {
 
     const name = (b.name || "").toString().slice(0, 40);
     const mascot = (b.mascot || "").toString().slice(0, 20);
+    // Stamps are stop CODES (stable strings). Older clients sent numeric ids, so
+    // both are accepted — a mixed record just reflects a device that hasn't
+    // refreshed to the new front-end yet.
     const visited = Array.isArray(b.visited)
-      ? b.visited.filter((n) => Number.isInteger(n)).slice(0, 50)
+      ? b.visited
+          .filter((v) => Number.isInteger(v) || (typeof v === "string" && /^[a-f0-9]{4,12}$/i.test(v)))
+          .slice(0, 50)
       : [];
     const season = Number.isInteger(b.season) ? b.season : null;                 // current season
     const lifetimeFound = Number.isInteger(b.lifetimeFound) ? b.lifetimeFound : 0; // all-time treasures

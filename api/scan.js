@@ -15,6 +15,43 @@ const redis = url && token ? new Redis({ url, token }) : null;
 const P = "nq:"; // Neighborhood Quest namespace
 const today = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
 
+// ---- "sticker missing" email alert -------------------------------------------------
+// When a kid reports a sign is gone, email the hider so it can be reprinted. Sent via
+// Resend's REST API (plain fetch — no extra npm dependency).
+//
+// Setup: add RESEND_API_KEY in the Vercel project's Environment Variables. Optional
+// overrides: ALERT_EMAIL (recipient) and ALERT_FROM (sender). With no key set, the
+// alert is skipped silently and scan logging carries on as normal.
+const ALERT_TO = process.env.ALERT_EMAIL || "branskar01@gmail.com";
+const ALERT_FROM = process.env.ALERT_FROM || "Neighborhood Quest <onboarding@resend.dev>";
+const ALERT_COOLDOWN_S = 12 * 60 * 60; // one email per stop per 12h, so a broken sign can't spam
+
+async function alertMissingSticker(stop, stopName) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+  // NX+EX: the first report claims the key and sends; repeats inside the window no-op.
+  const claimed = await redis.set(P + "alert:missing:" + stop, Date.now(), { nx: true, ex: ALERT_COOLDOWN_S });
+  if (!claimed) return;
+
+  const where = stopName ? `${stopName} (stop ${stop})` : `Stop ${stop}`;
+  const when = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: ALERT_FROM,
+      to: [ALERT_TO],
+      subject: `🙈 QR sticker missing at ${stopName || "stop " + stop}`,
+      text:
+        `A player reported the QR sticker is missing or damaged.\n\n` +
+        `Where: ${where}\nWhen:  ${when} (Pacific)\n\n` +
+        `They were stamped automatically (their phone confirmed they were within ~150 m).\n` +
+        `Reprint this one from setup.html and tape it back up.\n\n` +
+        `You won't get another email about this stop for 12 hours.`,
+    }),
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ error: "Use POST" }); return; }
   if (!redis) { res.status(200).json({ ok: false, note: "No database connected yet." }); return; }
@@ -42,6 +79,12 @@ export default async function handler(req, res) {
     p.lpush(P + "recent", JSON.stringify({ ts: Date.now(), stop, event, mascot }));
     p.ltrim(P + "recent", 0, 49);                          // keep last 50 events
     await p.exec();
+
+    // Email the hider about a downed sign. Never let a mail failure break the scan.
+    if (event === "sticker_missing" && stop != null) {
+      const stopName = b.stopName ? b.stopName.toString().slice(0, 60) : null;
+      try { await alertMissingSticker(stop, stopName); } catch { /* logging already succeeded */ }
+    }
 
     res.status(200).json({ ok: true });
   } catch (e) {

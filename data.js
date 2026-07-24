@@ -103,6 +103,11 @@ let STOPS = [
   },
 ];
 
+// Snapshot of the built-in stops, taken before any published config replaces STOPS.
+// Saves from before the "publish" feature stored numeric stop ids relative to THIS
+// list, so the id -> code migration in app.js has to resolve against it.
+const DEFAULT_STOPS = STOPS.slice();
+
 // find a stop by its QR hex code
 function stopByCode(code) {
   return STOPS.find((s) => s.code === code) || null;
