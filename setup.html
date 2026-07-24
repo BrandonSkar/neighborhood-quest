@@ -73,8 +73,8 @@
       `<h3>${title}</h3>` +
       (base ? `<img src="${qrImg(url)}" alt="QR for ${title}" />`
             : `<div style="padding:40px;color:#b9c4dc;">enter address ↑</div>`) +
-      `<div class="url">${url}${tag ? '<br><b>code: ' + tag + '</b>' : ''}</div>` +
-      `<div class="cut">✂️ - - - - - - - - - -</div>`;
+      `<div class="cut">✂️ - - - - - - - - - -</div>` +
+      `<div class="url">${url}${tag ? '<br><b>code: ' + tag + '</b>' : ''}</div>`;
     grid.appendChild(el);
   }
   function build(base) {
@@ -82,7 +82,7 @@
     // Optional plain app link (no stop) — handy for a flyer/poster to introduce the
     // quest. NOT a starting point: every stop is independent and scannable in any order.
     const startUrl = base || "(enter your web address above)";
-    card("🏠", "App link (optional — opens the app, no stop)", startUrl, base, "");
+    card("🏠", "Lakeland Hills Quest", startUrl, base, "");
     // One unique-hex code per stop.
     STOPS.forEach((s) => {
       const url = base
