@@ -27,6 +27,7 @@ const STOPS = [
   {
     id: 2, name: "Lakeland Hills Park", emoji: "🎡", sticker: "🛝", color: "#7ecb73", pos: [40, 36],
     code: "b7c218",
+    park: true,
     ll: [47.2595, -122.2113],
     intro: "Lakeland Hills Park! The big playground with room to run.",
     easy: "Go down a slide or swing up high — wheee! 🛝",
@@ -36,6 +37,7 @@ const STOPS = [
   {
     id: 3, name: "Evergreen Park", emoji: "🌲", sticker: "🌲", color: "#ffb24b", pos: [69, 34],
     code: "3ed0aa",
+    park: true,
     ll: [47.26072, -122.195542],
     intro: "Evergreen Park — surrounded by tall green trees!",
     easy: "Find the tallest tree you can and give it a big high-five! 🌲",
@@ -45,6 +47,7 @@ const STOPS = [
   {
     id: 4, name: "Alcove Park", emoji: "🌳", sticker: "🍃", color: "#7ecb73", pos: [58, 65],
     code: "c95b2f",
+    park: true,
     ll: [47.251373, -122.200515],
     intro: "Alcove Park — a little green hideaway!",
     easy: "Find a leaf and see how many colors are on it. 🍃",
@@ -72,6 +75,7 @@ const STOPS = [
   {
     id: 7, name: "Dorothy Bothell Park", emoji: "🛝", sticker: "🌸", color: "#ff7aa8", pos: [33, 47],
     code: "f0819d",
+    park: true,
     ll: [47.2566, -122.2157],
     intro: "Dorothy Bothell Park — the little park with swings!",
     easy: "Find the swings and count how many there are! 🛝",
@@ -81,6 +85,7 @@ const STOPS = [
   {
     id: 8, name: "Sunset Park", emoji: "🌇", sticker: "🏆", color: "#ffd84b", pos: [39, 84],
     code: "9c6d31",
+    park: true,
     ll: [47.2459, -122.2119],
     intro: "Sunset Park — a golden place to explore!",
     easy: "Strike a pose like you're watching a beautiful sunset! 🌇",

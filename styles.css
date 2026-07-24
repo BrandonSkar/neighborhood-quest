@@ -55,6 +55,10 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 /* #map is the viewport; .map-world is the full 1520x1230 map, panned/zoomed by JS. */
 #map{position:absolute;inset:0;}
 .leaflet-container{background:#dfe8cf;font-family:inherit;}
+/* cartoonify the real tiles: softer, brighter, more saturated */
+.leaflet-tile{filter:saturate(1.4) brightness(1.06) contrast(0.9);}
+.tree-deco{font-size:20px;line-height:24px;text-align:center;background:none;border:none;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));}
 /* GPS map pins: colored circle badge with the stop emoji + a downward point */
 .qpin-wrap{background:none;border:none;}
 .qpin{position:relative;width:40px;height:40px;}
@@ -201,12 +205,6 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .marker.done .mini{background:#1fae67;}
 #markers.compact .marker .pin,#markers.compact .marker .lbl{display:none;}
 #markers.compact .marker .mini{display:block;}
-
-/* ---------- Temporary debug button ---------- */
-.debug-reset{position:fixed;left:10px;bottom:10px;z-index:60;background:rgba(20,22,34,.72);color:#fff;
-  border:1px solid #4a5570;border-radius:10px;padding:6px 10px;font-family:inherit;font-size:12px;font-weight:700;
-  cursor:pointer;opacity:.75;}
-.debug-reset:hover{opacity:1;}
 
 /* ---------- Install / Add to Home Screen bar ---------- */
 .install-bar{position:fixed;left:12px;right:12px;bottom:12px;z-index:50;display:flex;align-items:center;gap:10px;

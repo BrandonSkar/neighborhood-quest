@@ -78,6 +78,16 @@ function initLeaflet() {
     maxZoom: 19, subdomains: "abcd",
   }).addTo(lmap);
 
+  // cartoon greenery drawn UNDER the pins: a soft green blob + little trees on parks
+  const treeIcon = L.divIcon({ className: "tree-deco", html: "🌲", iconSize: [24, 24], iconAnchor: [12, 20] });
+  STOPS.forEach((s) => {
+    if (!s.ll || !s.park) return;
+    L.circle(s.ll, { radius: 60, weight: 0, fillColor: "#8fd873", fillOpacity: 0.5, interactive: false }).addTo(lmap);
+    [[0.00045, -0.0005], [-0.0004, 0.0005], [0.00025, 0.00055], [-0.0002, -0.0004]].forEach((o) => {
+      L.marker([s.ll[0] + o[0], s.ll[1] + o[1]], { icon: treeIcon, interactive: false, keyboard: false }).addTo(lmap);
+    });
+  });
+
   STOPS.forEach((s) => {
     if (!s.ll) return;
     const m = L.marker(s.ll, { icon: stopIcon(s) }).addTo(lmap)
@@ -92,13 +102,6 @@ function initLeaflet() {
 
   const labelToggle = () => $("map").classList.toggle("labels-off", lmap.getZoom() < 15);
   lmap.on("zoomend", labelToggle); labelToggle();
-
-  // DEV helper (remove for launch): tap the map to copy a spot's coordinates
-  lmap.on("click", (e) => {
-    const c = e.latlng.lat.toFixed(6) + ", " + e.latlng.lng.toFixed(6);
-    try { navigator.clipboard.writeText(c); } catch {}
-    say("📍 " + c + " (copied — for setting pin spots)");
-  });
 }
 
 function showMap() {
@@ -432,16 +435,6 @@ $("installClose").onclick = () => {
   $("installBar").classList.add("hidden");
   try { localStorage.setItem("nq_installDismissed", "1"); } catch {}
 };
-
-// ---------- TEMPORARY debug: wipe all saved data and start fresh (remove for launch) ----------
-{
-  const dbg = $("debugReset");
-  if (dbg) dbg.onclick = () => {
-    if (typeof confirm === "function" && !confirm("DEBUG: erase ALL saved data (profile, stamps, stats) and start over?")) return;
-    ["nq_state_v2", "nq_stats", "nq_sid", "nq_installDismissed"].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
-    try { location.reload(); } catch {}
-  };
-}
 
 // register service worker (enables install + offline); harmless on file://
 try {
