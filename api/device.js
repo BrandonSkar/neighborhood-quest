@@ -1,18 +1,20 @@
-// Vercel Serverless Function — stores/deletes a per-DEVICE record in Upstash Redis.
+// Vercel Serverless Function — stores/deletes a per-DEVICE profile in Upstash Redis.
 //
-// The device id is the client's anonymous session id (nq_sid in localStorage), used
-// as the primary key. We keep the child's name, chosen guide, and stamps so their
-// profile is on record. All keys stay under the shared "nq:" namespace.
+// Mirrors Sparkle Quest's layout: ONE hash `nq:profiles`, with one field per device
+// (field = the device's anonymous id) and the value = a JSON blob of everything we
+// keep for them (name, chosen guide, stamps, timestamps). All under the shared "nq:"
+// namespace, so it sits alongside becu: / sparkle: without collisions.
 //
-//   POST { session, name, mascot, visited }  -> upsert nq:device:<session>
-//   POST { session, action:"delete" }        -> remove the device's data entirely
+//   POST { session, name, mascot, visited }  -> upsert nq:profiles[<session>]
+//   POST { session, action:"delete" }        -> remove that device entirely
 import { Redis } from "@upstash/redis";
 
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = url && token ? new Redis({ url, token }) : null;
 
-const P = "nq:";
+const PROFILES = "nq:profiles";
+const SESSIONS = "nq:sessions";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ error: "Use POST" }); return; }
@@ -21,14 +23,10 @@ export default async function handler(req, res) {
     const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const session = (b.session || "").toString().slice(0, 60);
     if (!session) { res.status(400).json({ error: "missing session" }); return; }
-    const key = P + "device:" + session;
 
     if (b.action === "delete") {
-      const p = redis.pipeline();
-      p.del(key);                         // their name / guide / stamps
-      p.srem(P + "devices", session);     // the device registry
-      p.srem(P + "sessions", session);    // the unique-visitors set
-      await p.exec();
+      await redis.hdel(PROFILES, session);   // remove their JSON entry
+      await redis.srem(SESSIONS, session);    // and drop them from unique-visitors
       res.status(200).json({ ok: true, deleted: true });
       return;
     }
@@ -40,11 +38,15 @@ export default async function handler(req, res) {
       : [];
     const now = Date.now();
 
-    const p = redis.pipeline();
-    p.hset(key, { id: session, name, mascot, visited: JSON.stringify(visited), updated: now });
-    p.hsetnx(key, "created", now);        // set once, on first sight
-    p.sadd(P + "devices", session);
-    await p.exec();
+    // preserve the original "created" time if this device already has a record
+    let created = now;
+    try {
+      const prev = await redis.hget(PROFILES, session);
+      if (prev && typeof prev === "object" && prev.created) created = prev.created;
+    } catch { /* ignore */ }
+
+    const record = { id: session, name, mascot, visited, created, updated: now };
+    await redis.hset(PROFILES, { [session]: record }); // stored as one JSON value
 
     res.status(200).json({ ok: true });
   } catch (e) {
