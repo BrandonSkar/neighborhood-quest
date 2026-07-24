@@ -358,7 +358,7 @@ function openPassport() {
     const got = state.visited.includes(s.id);
     const d = document.createElement("div");
     d.className = "slot" + (got ? " got" : "");
-    d.innerHTML = got ? `${s.sticker}<small>${s.name}</small>` : `<span class="q">❓</span>`;
+    d.innerHTML = got ? `<span class="sticker">${s.sticker}</span><small>${s.name}</small>` : `<span class="q">❓</span>`;
     grid.appendChild(d);
   });
   $("passportSub").textContent = state.visited.length >= STOPS.length
