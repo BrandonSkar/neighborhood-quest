@@ -12,6 +12,14 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   small map dots when zoomed out.
 - **Live GPS**: a blue "you are here" dot plus a 🔥 warmer / ❄️ colder hunt meter that
   points at the nearest unfound stop. Works without GPS too — the dot just doesn't show.
+- **Your guide walks you in**: tap a stop you haven't found and the card shows a big
+  arrow pointing at the real spot, a hotness bar, and warmer/colder talk that refreshes on
+  every GPS fix. **Nothing in the game ever shows metres** — far away is "a little walk",
+  and a step count only appears once it's small enough to picture ("SO close — about 25
+  more steps!"). Walk the wrong way twice and it says so. The arrow follows the compass
+  (iPhones ask first, via a 🧭 button); otherwise the dial goes north-up and the text
+  names the direction. A stop you've already found shows just its mission and Back to
+  map — no scanning tools in the way.
 - **In-app camera** (📷 Scan sticker on every stop card): asks for camera permission and
   reads the QR right inside the app, so nobody has to back out to the phone's camera app.
   Uses the browser's native `BarcodeDetector` when it exists and falls back to the
@@ -69,9 +77,15 @@ decides whether the map draws grass and trees around that pin (the outdoorsy one
 
 Optional: `ALERT_EMAIL` (recipient, defaults to `branskar01@gmail.com`) and `ALERT_FROM`
 (sender, defaults to Resend's shared `onboarding@resend.dev`). Without a verified domain,
-Resend only delivers to your own account address. **Without `RESEND_API_KEY` the alert is
-skipped silently** — scans still log normally. One email per stop per 12 h, so a single
-broken sign can't flood your inbox.
+Resend only delivers to your own account address. **Without `RESEND_API_KEY` no alert is
+sent** — scans still log normally. One email per stop per 12 h, so a single broken sign
+can't flood your inbox.
+
+**No email showing up?** Open `/setup.html` and tap **🔔 Send me a test alert**. It skips
+the 12 h limit and reports back in plain English — missing API key, whatever Resend
+replied, or "sent to …". The three usual causes: the key was never added in Vercel, you
+already got an email about that stop within 12 h, or Resend's shared sender only delivers
+to the address that owns the Resend account.
 
 ## Local testing
 Open `index.html` directly. Simulate a scan with `index.html?c=b7c218`. The scan

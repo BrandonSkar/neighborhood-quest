@@ -120,6 +120,15 @@
   </div>
 
   <div class="panel noprint">
+    <h2 style="margin-top:2px;">Missing-sticker emails</h2>
+    <p class="note" style="margin-top:0;">When a kid taps <b>🙈 Sticker Missing? Report it!</b> we email you so you can reprint that sign. Tap below to check the email actually works — it skips the one-per-stop-per-12-hours limit.</p>
+    <div class="toolbar">
+      <button id="testMailBtn" class="ghost">🔔 Send me a test alert</button>
+      <span id="mailStatus" class="status"></span>
+    </div>
+  </div>
+
+  <div class="panel noprint">
     <h2 style="margin-top:2px;">Print the QR codes</h2>
     <p class="note" style="margin-top:0;">One code per card. Cut them out, laminate if you like, and tape each at its dropped-pin spot. Each sheet also prints the <b>typed code</b>, so a kid whose camera won't cooperate can enter it in the app instead.</p>
     <div class="toolbar">
@@ -311,6 +320,28 @@
     btn.disabled = false;
   };
   function setStatus(t, cls) { const s = $("pubStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+
+  // ---- "is the missing-sticker email actually working?" ----
+  // The API answers with a plain-English status (no key set / Resend rejected it / sent),
+  // so a silent inbox stops being a mystery.
+  $("testMailBtn").onclick = async () => {
+    const btn = $("testMailBtn"); btn.disabled = true;
+    setMailStatus("Sending…", "");
+    try {
+      const r = await fetch("/api/scan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, test: true }),
+      });
+      const j = await r.json().catch(() => ({}));
+      const msg = j.alert || j.error || j.note || "No answer from the server.";
+      setMailStatus(/^sent/.test(msg) ? "✅ " + msg + " — check your inbox (and spam)." : "⚠️ " + msg,
+        /^sent/.test(msg) ? "ok" : "err");
+    } catch {
+      setMailStatus("⚠️ Couldn't reach the server — open this page on the live site, not from a file.", "err");
+    }
+    btn.disabled = false;
+  };
+  function setMailStatus(t, cls) { const s = $("mailStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
 
   // ---- QR print sheet ----
   const qrImg = (url) => "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" + encodeURIComponent(url);

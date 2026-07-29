@@ -88,6 +88,25 @@
     <div class="stop-badge" id="stopBadge">🌳</div>
     <h2 id="stopName">Stop</h2>
     <p id="stopIntro" class="intro"></p>
+
+    <!-- your guide talks you in to a stop you haven't found yet -->
+    <div id="guideNav" class="guide-nav hidden">
+      <div class="gn-dial">
+        <!-- a plain drawn arrow, not an emoji: it has to look right at every angle -->
+        <div id="gnArrow" class="gn-arrow" aria-hidden="true">
+          <svg viewBox="0 0 100 100" width="84" height="84">
+            <path d="M50 9 L85 80 L50 63 L15 80 Z" stroke="#fff" stroke-width="7" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <span class="gn-here">🎯</span>
+        <span class="gn-n">N</span>
+      </div>
+      <p id="gnSay" class="gn-say">Let's go find it!</p>
+      <div class="gn-bar"><div id="gnFill" class="gn-fill"></div></div>
+      <p id="gnSteps" class="gn-steps">Finding you on the map… 📍</p>
+      <button id="gnCompass" class="gn-compass hidden">🧭 Point me the way</button>
+    </div>
+
     <div id="missionWrap" class="mission">
       <div class="mission-head">
         <span class="mission-tag">✨ Your Mission</span>

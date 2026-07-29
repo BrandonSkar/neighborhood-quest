@@ -128,6 +128,7 @@ function anyModalOpen() { return BACK_SUBS.some((id) => !$(id).classList.contain
 function atMenuScreen() { return !$("home").classList.contains("hidden") && !anyModalOpen(); }
 function goMenu() {
   closeScanner();   // never leave the camera running behind the menu
+  stopGuiding();
   BACK_SUBS.forEach((id) => $(id).classList.add("hidden"));
   if (state.mascot) goHome(); else show("picker");
 }
@@ -254,7 +255,16 @@ function haversine(a, b) {          // meters between two [lat, lng] points
     Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m"; }
+// Kids don't read metres, so nothing in the game ever shows them — how far away a spot
+// is always comes out as words they already understand.
+function nearWord(m) {
+  if (m < 12) return "you're here! 🎯";
+  if (m < 30) return "super close!";
+  if (m < 80) return "really close";
+  if (m < 200) return "close by";
+  if (m < 600) return "a little walk";
+  return "a big walk";
+}
 function nearestUnfound(pos) {
   let best = null, bestD = Infinity;
   for (const s of STOPS) {
@@ -290,6 +300,7 @@ function onFix(lat, lng, acc) {
     }
   }
   updateHuntMeter();
+  updateStopGuide();
 }
 function updateHuntMeter() {
   const el = $("huntMeter"); if (!el) return;
@@ -303,14 +314,12 @@ function updateHuntMeter() {
     return;
   }
   let temp = "";
-  if (near.dist < 40) {
-    temp = "🎯 you're here!";
-  } else if (lastNearestStopId === near.stop.id && lastNearestDist != null) {
+  if (lastNearestStopId === near.stop.id && lastNearestDist != null) {
     if (near.dist < lastNearestDist - 3) temp = "🔥 warmer!";
     else if (near.dist > lastNearestDist + 3) temp = "❄️ colder";
   }
   lastNearestDist = near.dist; lastNearestStopId = near.stop.id;
-  $("huntText").innerHTML = `Nearest: <b>${near.stop.name}</b> · ${fmtDist(near.dist)}`;
+  $("huntText").innerHTML = `Nearest: <b>${near.stop.name}</b> · ${nearWord(near.dist)}`;
   $("huntTemp").textContent = temp;
   el.classList.remove("hidden");
 }
@@ -510,6 +519,13 @@ function openStop(id) {
   $("bonusToggle").textContent = "🧠 Big Kid Challenge";
   $("stopNote").classList.add("hidden");
   $("stopNote").classList.remove("good");
+  // Reveal the card BEFORE filling it in: the guide below only paints into a visible
+  // card, and the browser can't repaint until this whole function has finished anyway.
+  $("stopModal").classList.remove("hidden");
+
+  // Found = a celebration card: mission recap only, no scanning tools to get in the way.
+  $("scanStickerBtn").classList.toggle("hidden", found);
+  $("stickerGoneBtn").classList.toggle("hidden", found);
   if (found) {
     $("stopBadge").textContent = s.emoji;
     $("stopIntro").textContent = s.intro;
@@ -518,13 +534,161 @@ function openStop(id) {
     $("stopAnswer").textContent = s.answer;
     $("missionWrap").classList.remove("hidden");
     $("bonusToggle").classList.remove("hidden");
+    stopGuiding();
   } else {
     $("stopBadge").textContent = "❓";
-    $("stopIntro").textContent = `You haven't found this one yet! Look for the QR sticker at ${s.name} and scan it to stamp your passport. 🔍`;
+    $("stopIntro").textContent = `Let's go find ${s.name}!`;
     $("missionWrap").classList.add("hidden");
     $("bonusToggle").classList.add("hidden");
+    startGuiding(s);
   }
-  $("stopModal").classList.remove("hidden");
+}
+
+// ---------- your guide walks you to a stop you haven't found ----------
+// The card used to just say "you haven't found this one yet". Now the guide talks the
+// child in: an arrow pointing at the real spot, a warmer/colder line, and a countdown
+// in kid-sized steps that refreshes on every GPS fix.
+let navStop = null;                  // the stop the open card is guiding to
+let navBearing = null;               // direction to it, degrees clockwise from north
+let navLastDist = null, navWrong = 0;
+let headingDeg = null, compassOn = false;   // which way the phone is actually pointing
+
+function bearingTo(from, to) {
+  const rad = (d) => (d * Math.PI) / 180, deg = (r) => (r * 180) / Math.PI;
+  const la1 = rad(from[0]), la2 = rad(to[0]), dLn = rad(to[1] - from[1]);
+  const y = Math.sin(dLn) * Math.cos(la2);
+  const x = Math.cos(la1) * Math.sin(la2) - Math.sin(la1) * Math.cos(la2) * Math.cos(dLn);
+  return (deg(Math.atan2(y, x)) + 360) % 360;
+}
+const DIRS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+const dirName = (d) => DIRS[Math.round(d / 45) % 8];
+
+// A kid's step is about half a metre. We only ever say this out loud once the number
+// is small enough to picture — "about 25 more steps" lands, "about 1750" doesn't.
+const kidSteps = (m) => Math.max(5, Math.round((m * 2) / 5) * 5);
+const STEPS_MAX_M = 25;   // ~50 steps: past this the guide talks in warm/cold instead
+
+function startGuiding(s) {
+  navStop = s; navBearing = null; navLastDist = null; navWrong = 0;
+  $("guideNav").classList.remove("hidden");
+  startGeo();
+  startCompass();
+  updateStopGuide();
+}
+function stopGuiding() {
+  navStop = null;
+  $("guideNav").classList.add("hidden");
+  stopCompass();
+}
+
+function updateStopGuide() {
+  const s = navStop;
+  if (!s || $("stopModal").classList.contains("hidden")) return;
+  const box = $("guideNav"), say = $("gnSay"), steps = $("gnSteps");
+
+  if (!s.ll || !lastFix) {
+    box.classList.add("searching");
+    box.classList.remove("hot", "north-up", "arrived");
+    say.textContent = s.ll
+      ? "Turn on your location and I'll show you the way! 📍"
+      : `Look for the ${s.emoji} sticker around ${s.name}! 🔍`;
+    steps.textContent = s.ll ? "Looking for you on the map…" : "";
+    $("gnFill").style.width = "0%";
+    $("gnCompass").classList.add("hidden");
+    return;
+  }
+
+  box.classList.remove("searching");
+  const d = haversine(lastFix, s.ll);
+  navBearing = bearingTo(lastFix, s.ll);
+  paintArrow();
+
+  // warmer / colder, from how the distance changed since the last fix
+  if (navLastDist != null) {
+    if (d < navLastDist - 3) navWrong = 0;
+    else if (d > navLastDist + 3) navWrong++;
+  }
+  navLastDist = d;
+
+  box.classList.toggle("hot", d < 30);
+  box.classList.toggle("arrived", d < 10);   // swaps the arrow for a 🎯 — no way left to point
+
+  const way = headingDeg != null ? "Follow my arrow ⬆️" : `Head ${dirName(navBearing)}`;
+  if (d < 10) {
+    say.textContent = `We made it! 🎯 Find the ${s.emoji} sticker and scan it!`;
+    steps.textContent = "You're standing right on the spot!";
+  } else if (navWrong >= 2) {
+    say.textContent = "Oops — we're getting colder! Let's turn around. ↩️";
+    steps.textContent = way;
+  } else if (d < STEPS_MAX_M) {
+    say.textContent = `SO close — about ${kidSteps(d)} more steps! 🔥🔥`;
+    steps.textContent = "Start looking around for the sticker! 👀";
+  } else if (d < 80) {
+    say.textContent = "Really warm! It's just around here! 🔥";
+    steps.textContent = way;
+  } else if (d < 200) {
+    say.textContent = "Getting warmer — keep walking! 🚶";
+    steps.textContent = way;
+  } else if (d < 600) {
+    say.textContent = "We're on our way! Follow my arrow. 🧭";
+    steps.textContent = way;
+  } else {
+    say.textContent = "It's a little walk from here — let's go! 🗺️";
+    steps.textContent = way;
+  }
+
+  // hotness bar: empty a couple of blocks away, full when you're on top of it
+  $("gnFill").style.width = Math.round(Math.max(0, Math.min(1, 1 - d / 250)) * 100) + "%";
+  offerCompass();
+}
+
+// The arrow points at the real spot when we know which way the phone is facing;
+// otherwise the dial goes north-up (with an N marker) and the text names the direction.
+function paintArrow() {
+  if (navBearing == null) return;
+  const rel = headingDeg != null ? (navBearing - headingDeg + 360) % 360 : navBearing;
+  $("gnArrow").style.transform = `rotate(${rel}deg)`;
+  $("guideNav").classList.toggle("north-up", headingDeg == null);
+}
+
+function onOrient(e) {
+  let h = null;
+  if (typeof e.webkitCompassHeading === "number" && isFinite(e.webkitCompassHeading)) h = e.webkitCompassHeading;
+  else if (e.absolute && typeof e.alpha === "number" && isFinite(e.alpha)) h = (360 - e.alpha) % 360;
+  if (h == null) return;
+  headingDeg = h;
+  paintArrow();                      // cheap: the text only changes on a GPS fix
+}
+function startCompass() {
+  if (compassOn) return;
+  compassOn = true;
+  try {
+    window.addEventListener("deviceorientationabsolute", onOrient, true);
+    window.addEventListener("deviceorientation", onOrient, true);
+  } catch {}
+}
+function stopCompass() {
+  if (!compassOn) return;
+  compassOn = false;
+  try {
+    window.removeEventListener("deviceorientationabsolute", onOrient, true);
+    window.removeEventListener("deviceorientation", onOrient, true);
+  } catch {}
+}
+// iPhones only hand over the compass after a tap, so offer a button when we need one
+function needsCompassTap() {
+  try { return typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"; }
+  catch { return false; }
+}
+function offerCompass() {
+  $("gnCompass").classList.toggle("hidden", !(headingDeg == null && needsCompassTap()));
+}
+async function askCompass() {
+  try {
+    const r = await DeviceOrientationEvent.requestPermission();
+    if (r === "granted") { startCompass(); $("gnCompass").classList.add("hidden"); }
+    else $("gnCompass").textContent = "Compass is off — the arrow still points from the map 🗺️";
+  } catch { $("gnCompass").classList.add("hidden"); }
 }
 
 // ---------- "Sticker Missing? Report it!" (bottom of the stop card) ----------
@@ -557,7 +721,7 @@ function reportStickerMissing() {
     startGeo();
     flashCardNote("Thanks, we told the grown-up! 📬 Turn on location and tap again while you're at the spot to still get your stamp. 📍", true);
   } else {
-    flashCardNote(`Thanks, we told the grown-up! 📬 You're about ${fmtDist(dist)} away — tap again at ${s.name} to still get your stamp. 🚶`, true);
+    flashCardNote(`Thanks, we told the grown-up! 📬 You're not at ${s.name} yet — tap again when you get there to still get your stamp. 🚶`, true);
   }
 }
 function flashCardNote(t, good) {
@@ -566,7 +730,7 @@ function flashCardNote(t, good) {
   n.classList.toggle("good", !!good);
   n.classList.remove("hidden");
 }
-function closeStop() { $("stopModal").classList.add("hidden"); }
+function closeStop() { stopGuiding(); $("stopModal").classList.add("hidden"); }
 
 // ---------- in-app QR camera ("Scan sticker") ----------
 // Scanning inside the app means no backing out to the phone's camera app. Decoding
@@ -860,6 +1024,7 @@ $("closePassport").onclick = () => $("passportModal").classList.add("hidden");
 $("closeStop").onclick = closeStop;
 $("scanStickerBtn").onclick = openScanner;
 $("camClose").onclick = closeScanner;
+$("gnCompass").onclick = askCompass;
 $("camTypeBtn").onclick = () => showCodeEntry($("camCodeForm").classList.contains("hidden"));
 $("camCodeForm").onsubmit = submitTypedCode;
 $("stickerGoneBtn").onclick = reportStickerMissing;
