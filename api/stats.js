@@ -36,9 +36,12 @@ export default async function handler(req, res) {
       }))
       .sort((a, b) => (b.updated || 0) - (a.updated || 0));
 
+    // Union of both hashes: a stop can be reported missing without ever being scanned
+    // (a report from off-site isn't a find), and it still needs to show up here.
     const miss = missingByStop || {};
-    const perStop = Object.entries(byStop || {})
-      .map(([stop_id, n]) => ({ stop_id: +stop_id, n: +n, missing: +(miss[stop_id] || 0) }))
+    const scanned = byStop || {};
+    const perStop = [...new Set([...Object.keys(scanned), ...Object.keys(miss)])]
+      .map((stop_id) => ({ stop_id: +stop_id, n: +(scanned[stop_id] || 0), missing: +(miss[stop_id] || 0) }))
       .sort((a, b) => a.stop_id - b.stop_id);
     const mascotArr = Object.entries(mascots || {})
       .map(([mascot, n]) => ({ mascot, n: +n }))

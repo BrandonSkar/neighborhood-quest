@@ -35,19 +35,27 @@
   /* ---- card editor ---- */
   .card-edit{border:1px solid #e2e8f4;border-radius:12px;padding:12px;margin-bottom:12px;background:#fafcff;}
   .ce-top{display:flex;gap:10px;align-items:center;}
-  .ce-emoji{width:64px;flex:0 0 64px;text-align:center;font-size:26px;padding:8px;}
+  .ce-emoji{width:64px;flex:0 0 64px;font-size:30px;line-height:1;padding:9px 0;background:#fff;
+    color:inherit;border:2px solid #cdd6e8;border-radius:10px;}
+  .ce-emoji:hover{border-color:#5b8def;}
   .ce-name{flex:1;}
   .ce-num{flex:0 0 auto;font-weight:800;color:#9aa7c2;font-size:14px;width:24px;text-align:center;}
-  .ce-coords{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:10px;}
-  .ce-coords>div{flex:1;min-width:120px;}
-  .ce-coords label{font-size:12px;color:#7a89a6;font-weight:700;}
+  /* picture picker (also decides whether the map draws grass + trees around the pin) */
+  .ce-pick{margin-top:10px;background:#fff;border:1px solid #e2e8f4;border-radius:10px;padding:8px;
+    max-height:196px;overflow-y:auto;}
+  .ce-pick .pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px;}
+  .ce-pick h4{margin:2px 0 6px;font-size:12px;color:#7a89a6;text-transform:uppercase;letter-spacing:.5px;}
+  .ce-pick h4+.pg{margin-bottom:10px;}
+  .ce-pick button{background:#f6f9ff;border:1px solid #e2e8f4;border-radius:8px;font-size:24px;padding:6px 0;}
+  .ce-pick button.sel{background:#e6f8ef;border-color:#7ed3a6;box-shadow:inset 0 0 0 2px #b6ebcf;}
   .ce-row2{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;}
   .ce-loc{background:#eaf4ff;color:#1c6fd6;border:1px solid #bfdcff;white-space:nowrap;}
   .ce-loc.ok{background:#e6f8ef;color:#118a52;border-color:#b6ebcf;}
-  .ce-park{display:flex;align-items:center;gap:6px;font-weight:700;color:#3a5a8a;font-size:14px;}
-  .ce-park input{width:auto;}
-  .ce-del{margin-left:auto;}
-  .accuracy{font-size:12px;color:#7a89a6;}
+  .ce-del{margin-left:auto;padding:8px 14px;font-size:14px;}
+  .ce-pin{font-size:13px;font-weight:700;color:#a0abc2;}
+  .ce-pin.ok{color:#118a52;}
+  .check{display:flex;align-items:center;gap:6px;font-weight:700;color:#3a5a8a;font-size:15px;}
+  .check input{width:auto;}
 
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;}
   .status{font-weight:700;margin-left:6px;}
@@ -61,6 +69,11 @@
   .qr img{width:100%;max-width:200px;height:auto;image-rendering:pixelated;}
   .qr .url{font-size:11px;color:#8a97b2;word-break:break-all;margin-top:6px;}
   .qr .cut{font-size:12px;color:#b9c4dc;margin-top:6px;}
+  /* the typed-in fallback: big enough for a kid to read off the sign */
+  .qr .codebox{margin-top:8px;border:2px solid #e2e8f4;border-radius:12px;padding:6px 8px;background:#f8fbff;}
+  .qr .codebox small{display:block;font-size:11px;color:#7a89a6;font-weight:700;line-height:1.25;}
+  .qr .codebox b{display:block;font-family:"Consolas",ui-monospace,monospace;font-size:30px;letter-spacing:4px;
+    color:#2a3346;margin-top:2px;}
   @media print{
     body{background:#fff;padding:0;}
     .noprint{display:none !important;}
@@ -87,14 +100,8 @@
   <p class="lede">Add a card for each printout, drop its <b>exact pin</b>, then publish. The warmer&nbsp;🔥&nbsp;/&nbsp;colder&nbsp;❄️ hunt points at wherever you drop it, on every kid's phone.</p>
 
   <div class="panel">
-    <label for="base">Your game's web address (where index.html lives)</label>
-    <input id="base" placeholder="https://your-site.com/" />
-    <p class="note">Used only to build the QR links below. The tip is: tape each QR at its spot after you drop its pin standing there.</p>
-  </div>
-
-  <div class="panel">
     <h2 style="margin-top:2px;">Cards</h2>
-    <p class="note" style="margin-top:0;">Best way to get exact coords: stand at the printout's spot and tap <b>📍 Use my location</b> on that card. Or type coordinates in by hand.</p>
+    <p class="note" style="margin-top:0;">Stand where the printout will go and tap <b>📍 Use my location</b> on that card — that's the pin the kids' warmer/colder hunt points at. Tap the picture to change it; outdoorsy pictures also get grass and trees drawn around them on the map.</p>
     <div id="cards"></div>
     <div class="toolbar">
       <button id="addBtn" class="ghost">➕ Add a card</button>
@@ -103,8 +110,8 @@
   </div>
 
   <div class="panel">
-    <label class="ce-park" style="font-size:15px;"><input type="checkbox" id="newHunt" checked /> Start a fresh hunt (resets every kid's stamps for the new set)</label>
-    <p class="note">Leave this on when you change the spots. Turn it off if you're only nudging a pin and don't want to wipe anyone's progress.</p>
+    <label class="check"><input type="checkbox" id="newHunt" /> Start a fresh hunt (resets every kid's stamps for the new set)</label>
+    <p class="note">Off by default, so publishing only updates the cards and nobody loses progress. Tick it when you've moved to a whole new set of spots.</p>
     <div class="toolbar" style="margin-top:12px;">
       <button id="publishBtn" class="big">🚀 Publish to all phones</button>
       <span id="pubStatus" class="status"></span>
@@ -114,7 +121,7 @@
 
   <div class="panel noprint">
     <h2 style="margin-top:2px;">Print the QR codes</h2>
-    <p class="note" style="margin-top:0;">One code per card. Cut them out, laminate if you like, and tape each at its dropped-pin spot.</p>
+    <p class="note" style="margin-top:0;">One code per card. Cut them out, laminate if you like, and tape each at its dropped-pin spot. Each sheet also prints the <b>typed code</b>, so a kid whose camera won't cooperate can enter it in the app instead.</p>
     <div class="toolbar">
       <button id="refreshQR" class="ghost">🔄 Refresh sheet</button>
       <button onclick="window.print()">🖨️ Print sheet</button>
@@ -149,12 +156,23 @@
   // each card: { emoji, name, lat, lng, park, code, acc }
   let cards = [];
   const newCode = () => Math.random().toString(16).slice(2, 8);
-  const BASE_KEY = "nq_setup_base";
+
+  // The game always lives here, so the QR links build themselves.
+  const BASE = "https://neighborhood-quest.vercel.app/";
+
+  // ---- pictures to choose from ----
+  // `park: true` pictures also get grass + cartoon trees drawn around the pin on the
+  // kids' map — that's what the old "park" checkbox did, now baked into the picture.
+  const PICS = [
+    { group: "Parks & outdoors", list: ["🌳", "🌲", "🌴", "🎡", "🛝", "🎠", "⛲", "🏞️", "🌊", "🦆", "🦢", "🐿️",
+      "🦋", "🐝", "🐦", "🌸", "🌻", "🌷", "🌼", "🍃", "🍁", "🍄", "🪵", "🪨", "⛰️", "🥾", "🚵", "🏕️", "🧺", "🐕", "🐾", "🌈", "☀️"] },
+    { group: "Sports & play", list: ["⚽", "🏀", "⚾", "🎾", "🏐", "🏓", "🥅", "⛳", "🛹", "🏸", "🤸", "🏊"] },
+    { group: "Around the neighborhood", list: ["🏫", "📚", "🏠", "🏘️", "🏪", "⛪", "🚒", "🏥", "🚏", "🛑",
+      "📮", "🚦", "🌉", "🅿️", "🚲", "🎨", "🍦", "☕", "🗿", "🎪", "🚌", "🏛️", "📍"] },
+  ];
+  const PARK_PICS = new Set([...PICS[0].list, ...PICS[1].list]);   // outdoorsy = greenery
 
   async function initEditor() {
-    $("base").value = localStorage.getItem(BASE_KEY) || "";
-    $("base").addEventListener("input", () => localStorage.setItem(BASE_KEY, $("base").value.trim()));
-
     // load whatever is currently published (falls back to the built-in STOPS)
     let src = null;
     try {
@@ -177,6 +195,8 @@
   }
 
   // ---- render the editable cards ----
+  const hasPin = (c) => c.lat !== "" && c.lng !== "" && isFinite(+c.lat) && isFinite(+c.lng);
+
   function renderCards() {
     const box = $("cards"); box.innerHTML = "";
     cards.forEach((c, i) => {
@@ -185,52 +205,61 @@
       el.innerHTML = `
         <div class="ce-top">
           <span class="ce-num">${i + 1}</span>
-          <input class="ce-emoji" value="${escapeAttr(c.emoji)}" aria-label="Emoji" />
+          <button class="ce-emoji" title="Tap to choose a picture">${escapeHtml(c.emoji)}</button>
           <input class="ce-name" placeholder="Name (e.g. Big Oak Tree)" value="${escapeAttr(c.name)}" aria-label="Name" />
         </div>
-        <div class="ce-coords">
-          <div><label>Latitude</label><input class="ce-lat" inputmode="decimal" placeholder="47.2595" value="${c.lat}" /></div>
-          <div><label>Longitude</label><input class="ce-lng" inputmode="decimal" placeholder="-122.2113" value="${c.lng}" /></div>
-        </div>
+        <div class="ce-pick hidden">${PICS.map((g) =>
+          `<h4>${g.group}</h4><div class="pg">${g.list.map((e) =>
+            `<button data-em="${escapeAttr(e)}"${e === c.emoji ? ' class="sel"' : ""}>${e}</button>`).join("")}</div>`).join("")}</div>
         <div class="ce-row2">
-          <button class="ce-loc${c.lat && c.lng ? " ok" : ""}">📍 Use my location</button>
-          <span class="accuracy"></span>
-          <label class="ce-park"><input type="checkbox" class="ce-parkcb" ${c.park ? "checked" : ""}/> 🌳 park (adds greenery)</label>
+          <button class="ce-loc${hasPin(c) ? " ok" : ""}">📍 Use my location</button>
+          <span class="ce-pin"></span>
           <button class="ce-del danger ghost">🗑️ Delete</button>
         </div>`;
 
-      const emoji = el.querySelector(".ce-emoji");
+      const emojiBtn = el.querySelector(".ce-emoji");
+      const picker = el.querySelector(".ce-pick");
       const name = el.querySelector(".ce-name");
-      const lat = el.querySelector(".ce-lat");
-      const lng = el.querySelector(".ce-lng");
-      const parkcb = el.querySelector(".ce-parkcb");
       const locBtn = el.querySelector(".ce-loc");
-      const acc = el.querySelector(".accuracy");
+      const pin = el.querySelector(".ce-pin");
       const delBtn = el.querySelector(".ce-del");
 
-      emoji.oninput = () => (c.emoji = emoji.value);
-      name.oninput = () => (c.name = name.value);
-      lat.oninput = () => { c.lat = lat.value.trim(); c.acc = null; locBtn.classList.toggle("ok", !!(c.lat && c.lng)); };
-      lng.oninput = () => { c.lng = lng.value.trim(); c.acc = null; locBtn.classList.toggle("ok", !!(c.lat && c.lng)); };
-      parkcb.onchange = () => (c.park = parkcb.checked);
-      delBtn.onclick = () => { cards.splice(i, 1); renderCards(); };
+      const showPin = () => {
+        pin.classList.toggle("ok", hasPin(c));
+        pin.textContent = !hasPin(c) ? "No pin yet"
+          : c.acc != null ? `Pin dropped ±${Math.round(c.acc)} m` : "Pin saved ✓";
+      };
+      showPin();
 
-      if (c.acc != null) acc.textContent = `±${Math.round(c.acc)} m`;
+      emojiBtn.onclick = () => picker.classList.toggle("hidden");
+      picker.querySelectorAll("button").forEach((b) => {
+        b.onclick = () => {
+          c.emoji = b.dataset.em;
+          // outdoorsy picture -> the map draws grass and trees around this pin
+          c.park = PARK_PICS.has(c.emoji);
+          emojiBtn.textContent = c.emoji;
+          picker.querySelectorAll("button").forEach((o) => o.classList.toggle("sel", o === b));
+          picker.classList.add("hidden");
+          renderQR();
+        };
+      });
+      name.oninput = () => (c.name = name.value);
+      delBtn.onclick = () => { cards.splice(i, 1); renderCards(); renderQR(); };
 
       locBtn.onclick = () => {
-        if (!("geolocation" in navigator)) { acc.textContent = "No GPS on this device."; return; }
+        if (!("geolocation" in navigator)) { pin.textContent = "No GPS on this device."; return; }
         locBtn.textContent = "📡 Getting location…"; locBtn.disabled = true;
         navigator.geolocation.getCurrentPosition(
           (p) => {
             c.lat = p.coords.latitude.toFixed(6);
             c.lng = p.coords.longitude.toFixed(6);
             c.acc = p.coords.accuracy;
-            lat.value = c.lat; lng.value = c.lng;
-            acc.textContent = `±${Math.round(c.acc)} m`;
             locBtn.textContent = "📍 Use my location"; locBtn.disabled = false; locBtn.classList.add("ok");
+            showPin();
           },
           (err) => {
-            acc.textContent = err.code === 1 ? "Location blocked — allow it in your browser." : "Couldn't get a fix, try again.";
+            pin.classList.remove("ok");
+            pin.textContent = err.code === 1 ? "Location blocked — allow it in your browser." : "Couldn't get a fix, try again.";
             locBtn.textContent = "📍 Use my location"; locBtn.disabled = false;
           },
           { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -242,9 +271,9 @@
     if (!cards.length) box.innerHTML = `<p class="note">No cards yet. Tap <b>➕ Add a card</b> to begin.</p>`;
   }
 
-  $("addBtn").onclick = () => { cards.push({ emoji: "📍", name: "", lat: "", lng: "", park: false, code: newCode(), acc: null }); renderCards(); };
+  $("addBtn").onclick = () => { cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code: newCode(), acc: null }); renderCards(); };
   $("clearBtn").onclick = () => {
-    if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); }
+    if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); renderQR(); }
   };
 
   // ---- publish ----
@@ -253,7 +282,7 @@
       name: (c.name || "").trim(),
       emoji: (c.emoji || "📍").trim() || "📍",
       code: c.code || newCode(),
-      ll: (c.lat !== "" && c.lng !== "" && isFinite(+c.lat) && isFinite(+c.lng)) ? [+c.lat, +c.lng] : null,
+      ll: hasPin(c) ? [+c.lat, +c.lng] : null,
       park: !!c.park,
     }));
   }
@@ -285,28 +314,26 @@
 
   // ---- QR print sheet ----
   const qrImg = (url) => "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" + encodeURIComponent(url);
-  function qrCard(emoji, title, url, base, tag) {
+  function qrCard(emoji, title, url, code) {
     const el = document.createElement("div");
     el.className = "qr";
     el.innerHTML =
-      `<div class="em">${emoji}</div>` +
+      `<div class="em">${escapeHtml(emoji)}</div>` +
       `<h3>${escapeHtml(title)}</h3>` +
-      (base ? `<img src="${qrImg(url)}" alt="QR for ${escapeAttr(title)}" />`
-            : `<div style="padding:40px;color:#b9c4dc;">enter address ↑</div>`) +
+      `<img src="${qrImg(url)}" alt="QR for ${escapeAttr(title)}" />` +
+      // the typed fallback: kids who can't scan tap "Type the code instead" in the app
+      (code ? `<div class="codebox"><small>Can't scan? Open the app and type</small><b>${escapeHtml(code)}</b></div>` : "") +
       `<div class="cut">✂️ - - - - - - - - - -</div>` +
-      `<div class="url">${escapeHtml(url)}${tag ? '<br><b>code: ' + tag + '</b>' : ''}</div>`;
+      `<div class="url">${escapeHtml(url)}</div>`;
     return el;
   }
   function renderQR() {
     const grid = $("grid"); grid.innerHTML = "";
-    const base = $("base").value.trim();
     // intro/poster QR (opens the app with no stop)
-    grid.appendChild(qrCard("🏠", "Quest — Start Here", base || "(enter your web address above)", base, ""));
+    grid.appendChild(qrCard("🏠", "Quest — Start Here", BASE, ""));
     cards.forEach((c) => {
       if (!c.name) return;
-      const url = base ? base + (base.includes("?") ? "&" : "?") + "c=" + c.code
-                       : "(enter your web address above) ?c=" + c.code;
-      grid.appendChild(qrCard(c.emoji || "📍", c.name, url, base, c.code));
+      grid.appendChild(qrCard(c.emoji || "📍", c.name, BASE + "?c=" + c.code, c.code));
     });
   }
   $("refreshQR").onclick = renderQR;

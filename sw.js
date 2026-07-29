@@ -1,7 +1,7 @@
 // Service worker — installable + offline, but NETWORK-FIRST so a new deploy shows
 // up immediately when online (falls back to cache only when the network fails).
 // Scan logging (/api/*) always goes straight to the network and is never cached.
-const CACHE = "lakeland-quest-v4";
+const CACHE = "lakeland-quest-v5";
 const SHELL = [
   "./",
   "./index.html",
@@ -15,6 +15,7 @@ const SHELL = [
   "./greenery.js",
   "./vendor/leaflet/leaflet.js",
   "./vendor/leaflet/leaflet.css",
+  "./vendor/jsqr/jsQR.min.js",   // in-app sticker scanner (also works offline)
 ];
 
 self.addEventListener("install", (e) => {

@@ -26,7 +26,7 @@ const ALERT_TO = process.env.ALERT_EMAIL || "branskar01@gmail.com";
 const ALERT_FROM = process.env.ALERT_FROM || "Neighborhood Quest <onboarding@resend.dev>";
 const ALERT_COOLDOWN_S = 12 * 60 * 60; // one email per stop per 12h, so a broken sign can't spam
 
-async function alertMissingSticker(stop, stopName) {
+async function alertMissingSticker(stop, stopName, stamped) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
   // NX+EX: the first report claims the key and sends; repeats inside the window no-op.
@@ -43,9 +43,11 @@ async function alertMissingSticker(stop, stopName) {
       to: [ALERT_TO],
       subject: `🙈 QR sticker missing at ${stopName || "stop " + stop}`,
       text:
-        `A player reported the QR sticker is missing or damaged.\n\n` +
+        `A player tapped "Sticker Missing? Report it!" — the QR sticker is missing or damaged.\n\n` +
         `Where: ${where}\nWhen:  ${when} (Pacific)\n\n` +
-        `They were stamped automatically (their phone confirmed they were within ~150 m).\n` +
+        (stamped
+          ? `They were stamped automatically (their phone confirmed they were within ~150 m).\n`
+          : `They were NOT stamped — they reported it from somewhere else, or had already found this stop.\n`) +
         `Reprint this one from setup.html and tape it back up.\n\n` +
         `You won't get another email about this stop for 12 hours.`,
     }),
@@ -59,11 +61,13 @@ export default async function handler(req, res) {
     const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const session = (b.session || "").toString().slice(0, 60);
     const stop = Number.isInteger(b.stop) ? b.stop : null;
-    const event = ["scan", "home", "complete", "sticker_missing"].includes(b.event) ? b.event : "scan";
+    const event = ["scan", "home", "complete", "sticker_missing", "sticker_report"].includes(b.event) ? b.event : "scan";
     const mascot = b.mascot ? b.mascot.toString().slice(0, 20) : null;
 
-    // A missing/damaged sticker stamped via GPS still counts as a find, but we also
-    // tally it separately so /stats shows which sign needs reprinting.
+    // Two flavours of "the sign is gone": sticker_missing was stamped on the spot via
+    // GPS (so it counts as a find), sticker_report is an alert only. Both are tallied
+    // separately so /stats shows which sign needs reprinting.
+    const isMissingReport = event === "sticker_missing" || event === "sticker_report";
     const isFind = event === "scan" || event === "sticker_missing";
 
     const p = redis.pipeline();
@@ -74,16 +78,17 @@ export default async function handler(req, res) {
       if (stop != null) p.hincrby(P + "scans:byStop", String(stop), 1);
       if (mascot) p.hincrby(P + "mascots", mascot, 1);
     }
-    if (event === "sticker_missing" && stop != null) p.hincrby(P + "missing:byStop", String(stop), 1);
+    if (isMissingReport && stop != null) p.hincrby(P + "missing:byStop", String(stop), 1);
     if (event === "complete") p.incr(P + "completions");
     p.lpush(P + "recent", JSON.stringify({ ts: Date.now(), stop, event, mascot }));
     p.ltrim(P + "recent", 0, 49);                          // keep last 50 events
     await p.exec();
 
     // Email the hider about a downed sign. Never let a mail failure break the scan.
-    if (event === "sticker_missing" && stop != null) {
+    if (isMissingReport && stop != null) {
       const stopName = b.stopName ? b.stopName.toString().slice(0, 60) : null;
-      try { await alertMissingSticker(stop, stopName); } catch { /* logging already succeeded */ }
+      try { await alertMissingSticker(stop, stopName, event === "sticker_missing"); }
+      catch { /* logging already succeeded */ }
     }
 
     res.status(200).json({ ok: true });

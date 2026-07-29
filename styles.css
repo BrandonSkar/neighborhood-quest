@@ -135,11 +135,13 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .mission-text{font-size:19px;font-weight:700;line-height:1.35;margin:4px 0;}
 
 /* ---------- Missing-sticker fallback (in the stop card) ---------- */
-.sticker-gone{width:100%;margin-top:10px;background:#fff;border:3px dashed #d7c4a6;border-radius:16px;
+/* the report link lives at the very bottom of the stop card, under the two big buttons */
+.sticker-gone{width:100%;margin-top:14px;background:#fff;border:3px dashed #d7c4a6;border-radius:16px;
   padding:11px 14px;font-family:inherit;font-weight:800;font-size:14px;color:#a07b3c;cursor:pointer;}
 .sticker-gone:active{transform:translateY(2px);}
 .stop-note{margin:10px 0 0;font-weight:800;font-size:14px;color:#c0556a;background:#fff2f4;
   border-radius:14px;padding:9px 12px;line-height:1.3;}
+.stop-note.good{color:#3f8f5c;background:#eefaf0;}
 
 .bonus-toggle{background:#efe3ff;color:#7a4fd0;border:none;border-radius:16px;padding:10px 14px;font-family:inherit;
   font-weight:800;font-size:15px;cursor:pointer;width:100%;box-shadow:0 3px 0 rgba(0,0,0,.1);}
@@ -147,7 +149,42 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .reveal-btn{background:#c79bff;color:#fff;border:none;border-radius:12px;padding:8px 14px;font-family:inherit;
   font-weight:800;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.12);}
 .answer{font-size:20px;font-weight:900;color:#7a4fd0;margin:10px 0 0;}
-.done-btn{width:100%;margin-top:14px;background:var(--green);}
+.scan-btn{width:100%;margin-top:14px;background:#4aa8ff;}
+.done-btn{width:100%;margin-top:10px;background:var(--green);}
+
+/* ---------- In-app QR camera ---------- */
+.cam{position:fixed;inset:0;z-index:60;background:#0e141f;overflow:hidden;}
+.cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0e141f;}
+/* viewfinder: four cartoon corners around the middle of the screen */
+.cam-frame{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
+  width:min(72vw,300px);aspect-ratio:1;pointer-events:none;}
+.cam-frame .c{position:absolute;width:38px;height:38px;border:6px solid #ffd54b;border-radius:6px;}
+.cam-frame .tl{left:0;top:0;border-right:0;border-bottom:0;border-top-left-radius:18px;}
+.cam-frame .tr{right:0;top:0;border-left:0;border-bottom:0;border-top-right-radius:18px;}
+.cam-frame .bl{left:0;bottom:0;border-right:0;border-top:0;border-bottom-left-radius:18px;}
+.cam-frame .br{right:0;bottom:0;border-left:0;border-top:0;border-bottom-right-radius:18px;}
+.cam-bar{position:absolute;left:0;right:0;bottom:0;padding:16px 18px calc(18px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,rgba(10,15,25,.92),rgba(10,15,25,0));text-align:center;}
+.cam-hint{color:#fff;font-weight:800;font-size:17px;margin:0 0 12px;line-height:1.35;
+  text-shadow:0 2px 6px rgba(0,0,0,.6);}
+.cam-close{width:100%;max-width:420px;background:#5c6b83;}
+.cam-type{background:none;border:none;font-family:inherit;font-weight:800;font-size:16px;color:#ffd54b;
+  cursor:pointer;padding:10px;margin-bottom:4px;text-decoration:underline;}
+/* typed-code fallback for a sticker the camera won't read */
+.cam-code{display:flex;flex-direction:column;gap:10px;max-width:420px;margin:0 auto 6px;}
+.cam-code-input{font-family:"Consolas",ui-monospace,monospace;font-size:26px;font-weight:800;text-align:center;
+  letter-spacing:6px;text-transform:lowercase;padding:14px 12px;border:4px solid #ffd54b;border-radius:18px;
+  background:#fff;color:#2a3346;width:100%;}
+.cam-code-input:focus{outline:none;border-color:#7ecb73;}
+.cam-code-input.shake{animation:shk .35s;}
+@keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.cam-go{width:100%;background:var(--green);}
+/* keyboard up: float the panel to the top so it can't hide behind it, and calm the
+   live video down so the controls stay readable over it */
+.cam.typing .cam-bar{top:0;bottom:auto;padding:calc(16px + env(safe-area-inset-top)) 18px 26px;
+  background:linear-gradient(to bottom,rgba(10,15,25,.96) 72%,rgba(10,15,25,0));}
+.cam.typing .cam-frame{display:none;}
+.cam.typing .cam-video{filter:brightness(.35);}
 
 /* ---------- Passport ---------- */
 .passport-sub{color:#8a7a62;font-weight:700;margin:0 0 12px;}

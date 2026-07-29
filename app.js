@@ -123,10 +123,11 @@ function show(id) {
 }
 
 // ---------- Android/browser back button -> main menu (never leaves the app mid-quest) ----------
-const BACK_SUBS = ["stopModal", "passportModal", "guideModal", "finishModal", "scanAnim"];
+const BACK_SUBS = ["stopModal", "passportModal", "guideModal", "finishModal", "scanAnim", "scanCam"];
 function anyModalOpen() { return BACK_SUBS.some((id) => !$(id).classList.contains("hidden")); }
 function atMenuScreen() { return !$("home").classList.contains("hidden") && !anyModalOpen(); }
 function goMenu() {
+  closeScanner();   // never leave the camera running behind the menu
   BACK_SUBS.forEach((id) => $(id).classList.add("hidden"));
   if (state.mascot) goHome(); else show("picker");
 }
@@ -508,6 +509,7 @@ function openStop(id) {
   $("bonusBox").classList.add("hidden");
   $("bonusToggle").textContent = "🧠 Big Kid Challenge";
   $("stopNote").classList.add("hidden");
+  $("stopNote").classList.remove("good");
   if (found) {
     $("stopBadge").textContent = s.emoji;
     $("stopIntro").textContent = s.intro;
@@ -516,43 +518,249 @@ function openStop(id) {
     $("stopAnswer").textContent = s.answer;
     $("missionWrap").classList.remove("hidden");
     $("bonusToggle").classList.remove("hidden");
-    $("stickerGoneBtn").classList.add("hidden");
   } else {
     $("stopBadge").textContent = "❓";
     $("stopIntro").textContent = `You haven't found this one yet! Look for the QR sticker at ${s.name} and scan it to stamp your passport. 🔍`;
     $("missionWrap").classList.add("hidden");
     $("bonusToggle").classList.add("hidden");
-    $("stickerGoneBtn").classList.remove("hidden");
   }
   $("stopModal").classList.remove("hidden");
 }
 
-// The sticker at this stop is missing/damaged. Stamp it anyway, but ONLY if the
-// child's phone reports they are physically at the spot (GPS within ~150 m), and
-// log a "sticker_missing" event so we know which sign to reprint.
+// ---------- "Sticker Missing? Report it!" (bottom of the stop card) ----------
+// Asks for a confirmation, then emails the grown-up who hid the stickers so the sign
+// can be reprinted (the mail is sent server-side — see api/scan.js).
+//
+// A report ALSO stamps the stop, but only when it isn't stamped yet AND the child's
+// phone confirms they are standing there (GPS within ~150 m), so a downed sign can
+// never block them. Reporting from the couch just sends the alert.
 const NEAR_M = 150;
-function stickerGone() {
+function reportStickerMissing() {
   const s = activeStop;
-  if (!s || !s.ll || isFound(s)) return;
-  if (!lastFix) {
-    flashCardNote("Turn on location so we can check you're here, then try again. 📍");
+  if (!s) return;
+  const ok = typeof confirm !== "function" ||
+    confirm(`Is the QR sticker at ${s.name} missing or damaged?\n\nWe'll email the grown-up who hid it so they can put a new one up.`);
+  if (!ok) return;
+
+  const dist = (s.ll && lastFix) ? haversine(lastFix, s.ll) : null;
+  const canStamp = !isFound(s) && dist != null && dist <= NEAR_M;
+
+  // "sticker_missing" = reported AND stamped on the spot; "sticker_report" = reported
+  // only. Both email the hider; only the first one counts as a find.
+  logEvent(canStamp ? "sticker_missing" : "sticker_report", s.id);
+
+  if (canStamp) { closeStop(); startArrival(s.id); return; }
+
+  if (isFound(s)) {
+    flashCardNote("Thanks for telling us! We'll get a new sticker up there. 📬", true);
+  } else if (dist == null) {
     startGeo();
-    return;
+    flashCardNote("Thanks, we told the grown-up! 📬 Turn on location and tap again while you're at the spot to still get your stamp. 📍", true);
+  } else {
+    flashCardNote(`Thanks, we told the grown-up! 📬 You're about ${fmtDist(dist)} away — tap again at ${s.name} to still get your stamp. 🚶`, true);
   }
-  const d = haversine(lastFix, s.ll);
-  if (d > NEAR_M) {
-    flashCardNote(`Get a little closer to ${s.name} first — you're about ${fmtDist(d)} away. 🚶`);
-    return;
-  }
-  closeStop();
-  logEvent("sticker_missing", s.id); // counts as a find + flags the reprint
-  startArrival(s.id);
 }
-function flashCardNote(t) {
+function flashCardNote(t, good) {
   const n = $("stopNote"); if (!n) return;
-  n.textContent = t; n.classList.remove("hidden");
+  n.textContent = t;
+  n.classList.toggle("good", !!good);
+  n.classList.remove("hidden");
 }
 function closeStop() { $("stopModal").classList.add("hidden"); }
+
+// ---------- in-app QR camera ("Scan sticker") ----------
+// Scanning inside the app means no backing out to the phone's camera app. Decoding
+// uses the browser's native BarcodeDetector where it exists (Android/Chrome) and
+// falls back to the vendored jsQR on everything else (iOS Safari has no detector).
+let camStream = null, camRaf = null, camDetector = null, camBusy = false, camFrame = 0;
+let camCanvas = null, camCtx = null, camHintTimer = null, jsqrLoad = null;
+const CAM_DEFAULT_HINT = "Point at the QR sticker 🎯";
+
+function camSay(html, sticky) {
+  const el = $("camHint"); if (!el || el.innerHTML === html) return;
+  el.innerHTML = html;
+  clearTimeout(camHintTimer);
+  if (!sticky) camHintTimer = setTimeout(() => { $("camHint").innerHTML = CAM_DEFAULT_HINT; }, 2600);
+}
+
+// jsQR is ~130 KB, so it only loads the first time a phone actually needs it.
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve();
+  if (!jsqrLoad) {
+    jsqrLoad = new Promise((done) => {
+      const t = document.createElement("script");
+      t.src = "vendor/jsqr/jsQR.min.js";
+      t.onload = () => done();
+      t.onerror = () => { jsqrLoad = null; done(); };  // let a later try re-attempt
+      document.head.appendChild(t);
+    });
+  }
+  return jsqrLoad;
+}
+
+async function prepDecoder() {
+  camDetector = null;
+  try {
+    if ("BarcodeDetector" in window) {
+      const fmts = await window.BarcodeDetector.getSupportedFormats();
+      if (fmts.includes("qr_code")) { camDetector = new window.BarcodeDetector({ formats: ["qr_code"] }); return; }
+    }
+  } catch { /* fall through to jsQR */ }
+  await loadJsQR();
+}
+
+async function openScanner() {
+  if (camStream) return;                                  // already running
+  armBack();
+  $("scanCam").classList.remove("hidden");
+  showCodeEntry(false);
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    // no camera here (or not a secure page) — go straight to typing the code
+    showCodeEntry(true);
+    camSay("This phone won't let the app open the camera 📷<br>Type the code from the sticker instead.", true);
+    return;
+  }
+  camSay("Asking to use your camera — tap <b>Allow</b> 📷", true);
+  try {
+    // facingMode as a plain hint (not exact) so laptops/tablets with one camera still work
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+  } catch (e) {
+    const name = (e && e.name) || "";
+    showCodeEntry(true);
+    camSay(name === "NotAllowedError" || name === "SecurityError"
+      ? "Camera is turned off for this app 🔒<br>Allow it in your browser settings, or type the code below."
+      : "Couldn't start the camera 😕<br>Type the code from the sticker instead.", true);
+    return;
+  }
+  const v = $("camVideo");
+  v.srcObject = camStream;
+  try { await v.play(); } catch { /* some browsers autoplay it themselves */ }
+  camSay(CAM_DEFAULT_HINT, true);
+  await prepDecoder();
+  if (!camStream) return;                                  // cancelled while we were loading
+  if (!camDetector && !window.jsQR) {
+    showCodeEntry(true);
+    camSay("The scanner didn't load 😕<br>Type the code from the sticker instead.", true);
+    return;
+  }
+  camBusy = false; camFrame = 0;
+  camRaf = requestAnimationFrame(camTick);
+}
+
+function closeScanner() {
+  if (camRaf) { cancelAnimationFrame(camRaf); camRaf = null; }
+  clearTimeout(camHintTimer);
+  camBusy = false;
+  const v = $("camVideo");
+  if (v) { try { v.pause(); v.srcObject = null; } catch {} }
+  if (camStream) { try { camStream.getTracks().forEach((t) => t.stop()); } catch {} camStream = null; }
+  showCodeEntry(false);
+  $("scanCam").classList.add("hidden");
+}
+
+// ---------- typing the code instead (for a sticker the camera won't read) ----------
+// (callers that open this because the camera failed say why AFTER calling it, so
+// their message replaces the standard prompt)
+function showCodeEntry(on) {
+  $("scanCam").classList.toggle("typing", on);
+  $("camCodeForm").classList.toggle("hidden", !on);
+  $("camTypeBtn").textContent = on ? "📷 Use the camera instead" : "⌨️ Type the code instead";
+  camSay(on ? "Type the code printed on the sticker ⌨️" : CAM_DEFAULT_HINT, true);
+  const i = $("camCodeInput");
+  if (on) { i.value = ""; setTimeout(() => { try { i.focus(); } catch {} }, 60); }
+  else { try { i.blur(); } catch {} }
+}
+function submitTypedCode(e) {
+  if (e) e.preventDefault();
+  const el = $("camCodeInput");
+  const raw = (el.value || "").trim();
+  if (!raw) return;
+  // accept it however they type it: "A1F4C9", "a1 f4 c9", or the whole printed link
+  const s = stopFromScan(raw) || stopFromScan(raw.toLowerCase().replace(/[^0-9a-z]/g, ""));
+  if (!s) {
+    camSay("That code isn't one of ours 🤔<br>Check the sticker and try again.", true);
+    el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+    try { el.select(); } catch {}
+    return;
+  }
+  arriveAtStop(s);
+}
+
+function camTick() {
+  camRaf = requestAnimationFrame(camTick);
+  const v = $("camVideo");
+  if (camBusy || !v.videoWidth) return;
+  if (++camFrame % 3) return;                              // ~20 checks/sec is plenty
+  camBusy = true;
+  decodeFrame(v)
+    .then((text) => { camBusy = false; if (text) onScanText(text); })
+    .catch(() => { camBusy = false; });
+}
+
+async function decodeFrame(v) {
+  if (camDetector) {
+    const codes = await camDetector.detect(v);
+    return codes && codes.length ? codes[0].rawValue : null;
+  }
+  if (!window.jsQR) return null;
+  if (!camCanvas) {
+    camCanvas = document.createElement("canvas");
+    camCtx = camCanvas.getContext("2d", { willReadFrequently: true });
+  }
+  // downscale: a printed sticker still reads fine, and jsQR stays smooth on old phones
+  const scale = Math.min(1, 540 / Math.max(v.videoWidth, v.videoHeight));
+  const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+  if (camCanvas.width !== w || camCanvas.height !== h) { camCanvas.width = w; camCanvas.height = h; }
+  camCtx.drawImage(v, 0, 0, w, h);
+  const img = camCtx.getImageData(0, 0, w, h);
+  const r = window.jsQR(img.data, w, h, { inversionAttempts: "dontInvert" });
+  return r && r.data ? r.data : null;
+}
+
+// The sticker QR holds this app's address with ?c=<hex>. Accept the whole link, an
+// older ?stop=<n> sticker, or a bare code someone typed onto a sign.
+function stopFromScan(text) {
+  const t = (text || "").trim();
+  if (!t) return null;
+  const c = t.match(/[?&]c=([0-9a-zA-Z]+)/);
+  if (c && stopByCode(c[1])) return stopByCode(c[1]);
+  const n = t.match(/[?&]stop=(\d+)/);
+  if (n && stopById(+n[1])) return stopById(+n[1]);
+  if (/^[0-9a-zA-Z]{4,12}$/.test(t) && stopByCode(t)) return stopByCode(t);
+  return null;
+}
+function isOurLink(text) {
+  try { return new URL(text, location.href).host === location.host; } catch { return false; }
+}
+
+function onScanText(text) {
+  const s = stopFromScan(text);
+  if (!s) {
+    if (!isOurLink(text)) camSay("That's not a Quest sticker 🤔<br>Keep looking!");
+    else if (/[?&](c|stop)=/.test(text)) camSay("That sticker is from another hunt 🗺️<br>Look for the spots on your map!");
+    else camSay("That's the welcome poster 🏠<br>Look for a sticker at one of the map spots!");
+    return;
+  }
+  arriveAtStop(s);
+}
+
+// scanned or typed, a correct code lands here: stamp it with the find animation
+function arriveAtStop(s) {
+  closeScanner();
+  try { if (navigator.vibrate) navigator.vibrate(60); } catch {}
+  closeStop();
+  logEvent("scan", s.id);
+  startArrival(s.id);
+}
+
+// never keep the camera on in the background
+try {
+  document.addEventListener("visibilitychange", () => { if (document.hidden) closeScanner(); });
+  window.addEventListener("pagehide", closeScanner);
+} catch {}
 
 // ---------- passport ----------
 function openPassport() {
@@ -650,7 +858,11 @@ $("homeGuideBtn").onclick = () => {
 $("passportBtn").onclick = openPassport;
 $("closePassport").onclick = () => $("passportModal").classList.add("hidden");
 $("closeStop").onclick = closeStop;
-$("stickerGoneBtn").onclick = stickerGone;
+$("scanStickerBtn").onclick = openScanner;
+$("camClose").onclick = closeScanner;
+$("camTypeBtn").onclick = () => showCodeEntry($("camCodeForm").classList.contains("hidden"));
+$("camCodeForm").onsubmit = submitTypedCode;
+$("stickerGoneBtn").onclick = reportStickerMissing;
 $("bonusToggle").onclick = () => {
   const hidden = $("bonusBox").classList.toggle("hidden");
   $("bonusToggle").textContent = hidden ? "🧠 Big Kid Challenge" : "🙈 Hide Challenge";
