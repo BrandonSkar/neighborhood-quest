@@ -25,7 +25,7 @@ const today = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
 const ALERT_TO = process.env.ALERT_EMAIL || "branskar01@gmail.com";
 const ALERT_FROM = process.env.ALERT_FROM || "Neighborhood Quest <onboarding@resend.dev>";
 const ALERT_COOLDOWN_S = 12 * 60 * 60; // one email per stop per 12h, so a broken sign can't spam
-const SETUP_CODE = "8979";             // same gate setup.html uses to publish
+const SETUP_CODE = process.env.ADMIN_CODE || "8979";   // same gate setup.html uses
 
 // Every mail path returns a plain-English status instead of failing silently, so the
 // "Send me a test alert" button in setup.html can say exactly what went wrong.

@@ -15,6 +15,9 @@ const url = process.env.NQ_URL || process.env.KV_REST_API_URL || process.env.UPS
 const token = process.env.NQ_TOKEN || process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 if (!url || !token) { console.error("Set NQ_URL and NQ_TOKEN (the main-db REST url + token)."); process.exit(1); }
 
+// Easier than this script: /setup.html has a "Start over" panel that does the same
+// thing with two taps and no credentials. This stays as the offline escape hatch.
+//
 // nq:config holds the hider's PUBLISHED cards (names + exact GPS pins). Wiping it
 // would silently revert every phone to the built-in default stops, so it's kept by
 // default. Pass --with-config to blow that away too and start from scratch.
@@ -34,6 +37,17 @@ try {
       doomed.forEach((k) => console.log("deleted", k));
     }
   } while (cursor !== "0");
+
+  // Put the hunt back to Season 1 so nobody keeps stamps from the old run. (Every
+  // phone compares the season on open and clears itself when it changes.)
+  if (keepConfig) {
+    const cfg = await redis.get("nq:config");
+    if (cfg && Array.isArray(cfg.stops) && cfg.season !== 1) {
+      await redis.set("nq:config", { ...cfg, season: 1, updated: Date.now() });
+      console.log("reset nq:config season -> 1");
+    }
+  }
+
   console.log(`\nDone. Deleted ${total} nq:* key(s). becu:* and sparkle:* untouched.`);
   if (kept) console.log("Kept nq:config (your published cards). Use --with-config to delete it too.");
 } catch (e) {

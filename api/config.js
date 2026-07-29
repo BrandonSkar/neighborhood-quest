@@ -17,7 +17,8 @@ const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TO
 const redis = url && token ? new Redis({ url, token }) : null;
 
 const CONFIG = "nq:config";
-const SETUP_CODE = "8979"; // gate for publishing (kept simple — this is a kids' game)
+// Gate for publishing. Set ADMIN_CODE in Vercel to use a private one instead.
+const SETUP_CODE = process.env.ADMIN_CODE || "8979";
 
 // One question, up to three answers, one right. Half-filled means no quiz.
 function sanitizeQuiz(q) {

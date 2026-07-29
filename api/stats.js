@@ -1,6 +1,10 @@
 // Vercel Serverless Function — returns aggregate scan stats from Upstash Redis.
 // Reads only keys under the "nq:" namespace, so it ignores the other apps sharing
-// this database. Same JSON shape as before, so stats.html needs no changes.
+// this database.
+//
+// The dashboard is yours, not the neighbourhood's: this needs ?code=<setup code>, so
+// the URL on its own gives a stranger nothing. Set ADMIN_CODE in Vercel to change it
+// from the built-in 8979.
 import { Redis } from "@upstash/redis";
 
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -8,8 +12,11 @@ const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TO
 const redis = url && token ? new Redis({ url, token }) : null;
 
 const P = "nq:";
+const ADMIN_CODE = process.env.ADMIN_CODE || "8979";
 
 export default async function handler(req, res) {
+  const code = ((req.query && req.query.code) || "").toString();
+  if (code !== ADMIN_CODE) { res.status(403).json({ error: "Wrong setup code." }); return; }
   if (!redis) { res.status(200).json({ connected: false }); return; }
   try {
     const today = new Date().toISOString().slice(0, 10);

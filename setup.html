@@ -25,6 +25,8 @@
   button:disabled{opacity:.5;cursor:not-allowed;}
   .note{font-size:13px;color:#7a89a6;margin-top:8px;}
   .hidden{display:none !important;}
+  a{color:#2b6fd6;font-weight:700;}
+  .danger-zone{border-color:#ffc9cf;background:#fffafa;}
 
   /* ---- lock gate ---- */
   #lock .panel{max-width:420px;margin:8vh auto 0;text-align:center;}
@@ -106,7 +108,7 @@
 <!-- ============ EDITOR (unlocked) ============ -->
 <div id="editor" class="wrap hidden">
   <h1>🗺️ Neighborhood Quest — Setup</h1>
-  <p class="lede">Add a card for each printout, drop its <b>exact pin</b>, then publish. The warmer&nbsp;🔥&nbsp;/&nbsp;colder&nbsp;❄️ hunt points at wherever you drop it, on every kid's phone.</p>
+  <p class="lede">Add a card for each printout, drop its <b>exact pin</b>, then publish. The warmer&nbsp;🔥&nbsp;/&nbsp;colder&nbsp;❄️ hunt points at wherever you drop it, on every kid's phone. &nbsp;<a href="stats.html">📊 Dashboard →</a></p>
 
   <div class="panel">
     <h2 style="margin-top:2px;">Cards</h2>
@@ -126,6 +128,16 @@
       <span id="pubStatus" class="status"></span>
     </div>
     <p class="note">Publishing saves your cards to the game's database so every phone loads them next time it opens (online). The game still works offline after that.</p>
+  </div>
+
+  <div class="panel noprint danger-zone">
+    <h2 style="margin-top:2px;">Start over</h2>
+    <p class="note" style="margin-top:0;">Clears every scan, player and missing-sticker tally from the database and puts the hunt back to <b>Season 1</b>. Each phone notices the season changed next time it opens and clears its own stamps. This can't be undone.</p>
+    <div class="toolbar">
+      <button id="wipeKeepBtn" class="danger">🧹 Wipe all data, keep my cards</button>
+      <button id="wipeAllBtn" class="danger">💣 Wipe everything, cards too</button>
+      <span id="wipeStatus" class="status"></span>
+    </div>
   </div>
 
   <div class="panel noprint">
@@ -151,24 +163,45 @@
 <script src="data.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
-  const SETUP_CODE = "8979";
+  const DEFAULT_CODE = "8979";          // used offline; the live site checks ADMIN_CODE
+  const CODE_KEY = "nq_admin_code";
+  let SETUP_CODE = DEFAULT_CODE;        // whatever unlocked this session, sent to the API
 
   // ---- lock gate ----
-  function tryUnlock() {
+  // The server is the real judge (so a private ADMIN_CODE set in Vercel just works),
+  // with the built-in code as the offline fallback. Remembered on this device after
+  // the first time, so a home-screen icon opens straight into the editor.
+  async function codeWorks(v) {
+    try {
+      const r = await fetch("/api/stats?code=" + encodeURIComponent(v), { cache: "no-store" });
+      if (r.status === 403) return false;
+      if (r.ok) return true;
+    } catch { /* offline or file:// — fall back to the built-in code */ }
+    return v === DEFAULT_CODE;
+  }
+  async function unlockWith(v) {
+    if (!(await codeWorks(v))) return false;
+    SETUP_CODE = v;
+    try { localStorage.setItem(CODE_KEY, v); } catch {}
+    $("lock").classList.add("hidden");
+    $("editor").classList.remove("hidden");
+    initEditor();
+    return true;
+  }
+  async function tryUnlock() {
     const v = $("codeInput").value.trim();
-    if (v === SETUP_CODE) {
-      $("lock").classList.add("hidden");
-      $("editor").classList.remove("hidden");
-      initEditor();
-    } else {
-      $("lockMsg").textContent = "Nope, try again.";
-      const p = $("codeInput"); p.classList.remove("shake"); void p.offsetWidth; p.classList.add("shake");
-      p.value = ""; p.focus();
-    }
+    if (v && await unlockWith(v)) return;
+    $("lockMsg").textContent = "Nope, try again.";
+    const p = $("codeInput"); p.classList.remove("shake"); void p.offsetWidth; p.classList.add("shake");
+    p.value = ""; p.focus();
   }
   $("unlockBtn").onclick = tryUnlock;
   $("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
-  $("codeInput").focus();
+  (async () => {
+    const saved = (() => { try { return localStorage.getItem(CODE_KEY) || ""; } catch { return ""; } })();
+    if (saved && await unlockWith(saved)) return;
+    $("codeInput").focus();
+  })();
 
   // ---- editor state ----
   // each card: { emoji, name, lat, lng, park, code, acc }
@@ -363,6 +396,34 @@
     btn.disabled = false;
   };
   function setStatus(t, cls) { const s = $("pubStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+
+  // ---- start over: wipe the database back to a clean Season 1 ----
+  async function wipe(keepCards) {
+    const what = keepCards
+      ? "Wipe ALL scans, players and tallies?\n\nYour cards and pins stay. The hunt goes back to Season 1, so every phone clears its stamps."
+      : "Wipe EVERYTHING, including your cards and pins?\n\nYou'll have to add every stop again from scratch.";
+    if (!confirm(what)) return;
+    if (!confirm("Last chance — this cannot be undone. Go ahead?")) return;
+    setWipeStatus("Wiping…", "");
+    try {
+      const r = await fetch("/api/reset", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, keepCards }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { setWipeStatus(j.error || j.note || "Wipe failed.", "err"); return; }
+      setWipeStatus(`✅ Deleted ${j.deleted} record(s) — back to Season 1${j.keptCards ? ", cards kept" : ", cards cleared"}.`, "ok");
+      // this device was holding the old hunt in localStorage too
+      try { localStorage.removeItem("nq_config"); } catch {}
+      cards = j.keptCards ? cards : [];
+      renderCards(); renderQR();
+    } catch {
+      setWipeStatus("Couldn't reach the server — open this page on the live site.", "err");
+    }
+  }
+  $("wipeKeepBtn").onclick = () => wipe(true);
+  $("wipeAllBtn").onclick = () => wipe(false);
+  function setWipeStatus(t, cls) { const s = $("wipeStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
 
   // ---- "is the missing-sticker email actually working?" ----
   // The API answers with a plain-English status (no key set / Resend rejected it / sent),

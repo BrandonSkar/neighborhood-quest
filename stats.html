@@ -34,15 +34,37 @@
     border-radius:10px;padding:9px 16px;cursor:pointer;}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
   .note{font-size:12px;color:#7a89a6;margin-top:10px;}
+  a.link{color:#5ec8ff;font-weight:700;text-decoration:none;font-size:14px;}
+  .hidden{display:none !important;}
+  /* ---- lock gate: this dashboard is the hider's, not the neighbourhood's ---- */
+  #lock{max-width:360px;margin:14vh auto 0;text-align:center;}
+  #lock .panel{padding:22px;}
+  #lock input{width:100%;font-family:inherit;text-align:center;letter-spacing:8px;font-size:26px;font-weight:800;
+    padding:12px;border-radius:12px;border:2px solid #29344f;background:#0f1626;color:#e8edf7;}
+  #lock button{width:100%;margin-top:12px;background:#2b5cc4;border-color:#3f74e0;}
+  .shake{animation:shk .35s;}
+  @keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<div id="lock">
+  <div class="panel">
+    <h1>🔒 Dashboard</h1>
+    <p class="sub">Enter your setup code to see the numbers.</p>
+    <input id="codeInput" inputmode="numeric" maxlength="12" placeholder="••••" autocomplete="off" />
+    <button id="unlockBtn">Unlock</button>
+    <p id="lockMsg" class="note"></p>
+  </div>
+</div>
+
+<div class="wrap hidden" id="board">
   <h1>🗺️ Quest <span>Dashboard</span><span id="mode" class="badge local">local</span></h1>
   <p class="sub">Player progress and scan activity for your quest.</p>
 
   <div class="row">
     <button onclick="loadStats()">🔄 Refresh</button>
+    <a class="link" href="setup.html">🗺️ Setup &amp; cards →</a>
     <span class="muted" id="updated"></span>
   </div>
 
@@ -163,17 +185,54 @@ function localData(){
     completions:st.completions||0, today:null, perStop, mascots:[], recent:[] };
 }
 
+// ---- lock gate ----
+// The code is remembered on this device, so it's one tap from a home-screen icon;
+// the API checks it too, so the URL alone shows a stranger nothing.
+const CODE_KEY = "nq_admin_code";
+const el = (id) => document.getElementById(id);
+let ADMIN_CODE = "";
+
+async function tryUnlock(code){
+  const r = await fetch("/api/stats?code=" + encodeURIComponent(code), {cache:"no-store"});
+  if(r.status === 403) return false;
+  const d = await r.json().catch(()=>null);
+  ADMIN_CODE = code;
+  try{ localStorage.setItem(CODE_KEY, code); }catch{}
+  el("lock").classList.add("hidden");
+  el("board").classList.remove("hidden");
+  // Cards first so stop names match the live hunt, then paint.
+  await loadConfig().catch(()=>{});
+  if(d && d.connected) render(d, true); else render(localData(), false);
+  return true;
+}
+function wrongCode(msg){
+  el("lockMsg").textContent = msg || "Nope, try again.";
+  const p = el("codeInput"); p.classList.remove("shake"); void p.offsetWidth; p.classList.add("shake");
+  p.value = ""; p.focus();
+}
+el("unlockBtn").onclick = async () => {
+  const v = el("codeInput").value.trim();
+  if(!v) return;
+  try{ if(!(await tryUnlock(v))) wrongCode(); }
+  catch{ wrongCode("Couldn't reach the server — open this on the live site."); }
+};
+el("codeInput").addEventListener("keydown", (e) => { if(e.key === "Enter") el("unlockBtn").click(); });
+
 async function loadStats(){
   try{
-    const r = await fetch("/api/stats",{cache:"no-store"});
+    const r = await fetch("/api/stats?code=" + encodeURIComponent(ADMIN_CODE), {cache:"no-store"});
     const d = await r.json();
     if(d && d.connected){ render(d, true); return; }
-  }catch(e){ /* fall through to local */ }
+  }catch(e){ /* fall through to this device's own tally */ }
   render(localData(), false);
 }
-// Load the hider's published cards first so stop labels match the current hunt,
-// then draw the dashboard.
-loadConfig().catch(()=>{}).then(loadStats);
+
+// Straight in if this device already knows the code.
+(async () => {
+  const saved = (() => { try{ return localStorage.getItem(CODE_KEY) || ""; }catch{ return ""; } })();
+  if(saved){ try{ if(await tryUnlock(saved)) return; }catch{} }
+  el("codeInput").focus();
+})();
 </script>
 </body>
 </html>

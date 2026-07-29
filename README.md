@@ -60,10 +60,12 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | `stats.html` | Live scan dashboard |
 | `api/config.js` | Stores/serves the hider's published cards (`nq:config`); publishing bumps the season |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
-| `api/stats.js` | Returns aggregate stats for the dashboard |
+| `api/stats.js` | Returns aggregate stats for the dashboard (needs the code) |
+| `api/reset.js` | The "Start over" wipe — clears `nq:*` and resets to Season 1 |
 | `vendor/` | Bundled Leaflet (map) + jsQR (in-app sticker scanner) — no CDN at runtime |
 | `manifest.webmanifest` / `sw.js` / `icon-*.png` | PWA install + offline |
-| `scripts/` | Icon generator + Redis migration helper |
+| `scripts/dev.mjs` | Local server for your PC — serves these files, proxies `/api/*` to the live site |
+| `scripts/` | Icon generator, Redis migration helper, `reset-nq.mjs` wipe |
 
 ## Deploy (Vercel)
 1. Import the repo; set the project **Root Directory** to this folder.
@@ -104,9 +106,41 @@ replied, or "sent to …". The three usual causes: the key was never added in Ve
 already got an email about that stop within 12 h, or Resend's shared sender only delivers
 to the address that owns the Resend account.
 
+## Your two private pages
+`/setup.html` (cards, pins, questions, printing) and `/stats.html` (the dashboard) both
+sit behind the same code — **8979** by default. Each device remembers it after the first
+unlock, so add them to your home screen and they open straight in. The API checks the
+code too (`/api/stats?code=…`, and every POST), so the URL alone shows a stranger nothing.
+
+Want a code only you know? Add **`ADMIN_CODE`** in Vercel → Settings → Environment
+Variables and redeploy. The pages ask the server whether a code is good, so a new one
+works everywhere with no code changes. (Offline, `setup.html` still opens on 8979.)
+
 ## Local testing
-Open `index.html` directly. Simulate a scan with `index.html?c=b7c218`. The scan
-dashboard falls back to a local tally until deployed with the database connected.
+Two ways:
+
+**With your real data** — `node scripts/dev.mjs` (or `npm run dev`), then open
+http://localhost:5173. Pages come off your disk, while `/api/*` is forwarded to the live
+site, so setup shows the cards you actually published and the dashboard shows real scans.
+No npm install, no Vercel CLI, no database credentials on your PC. Publishing and wiping
+from here are real. Point it somewhere else with `NQ_LIVE=https://… node scripts/dev.mjs`.
+(Opening the `.html` files straight off disk can't do this — there's no `/api` to answer,
+so you get the built-in demo stops and this device's own tally, which is why the numbers
+looked wrong.)
+
+**Offline** — open `index.html` directly and simulate a scan with `index.html?c=b7c218`.
+
+## Starting over
+`/setup.html` → **Start over**:
+- **🧹 Wipe all data, keep my cards** — clears every scan, player, tally and alert, keeps
+  your stops and pins, and puts the hunt back to **Season 1**.
+- **💣 Wipe everything, cards too** — the above plus the published cards.
+
+Both ask twice and can't be undone. Only `nq:*` keys are touched, so anything else in a
+shared Upstash database is safe. Each phone notices the season changed the next time it
+opens and clears its own stamps; to wipe a phone right now, use **🗑️ Delete my data** on
+its home screen. `scripts/reset-nq.mjs` does the same job from a terminal if you'd rather
+(needs `NQ_URL` / `NQ_TOKEN`).
 
 The in-app camera needs a **secure context**, so it only runs on `https://` (or
 `http://localhost`) — over `file://` the button explains to use the phone's camera app.
