@@ -54,6 +54,15 @@
   .ce-del{margin-left:auto;padding:8px 14px;font-size:14px;}
   .ce-pin{font-size:13px;font-weight:700;color:#a0abc2;}
   .ce-pin.ok{color:#118a52;}
+  /* per-card quiz: one question, up to three answers, tick the right one */
+  .ce-quiz{margin-top:12px;border-top:1px dashed #dbe3f2;padding-top:10px;}
+  .ce-quiz label{font-size:13px;color:#3a5a8a;}
+  .ce-quiz .opt{font-weight:400;color:#9aa7c2;}
+  .qhint{font-size:12px;color:#7a89a6;margin:8px 0 8px;}
+  .cq-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+  .cq-mark{flex:0 0 auto;margin:0;display:flex;align-items:center;}
+  .cq-mark input{width:22px;height:22px;accent-color:#1fae67;}
+  .cq-a{flex:1;}
   .check{display:flex;align-items:center;gap:6px;font-weight:700;color:#3a5a8a;font-size:15px;}
   .check input{width:auto;}
 
@@ -198,6 +207,9 @@
       park: !!s.park,
       code: s.code || newCode(),
       acc: null,
+      q: (s.quiz && s.quiz.q) || "",
+      choices: (s.quiz && Array.isArray(s.quiz.choices) ? s.quiz.choices.slice(0, 3) : []),
+      correct: (s.quiz && Number.isInteger(s.quiz.correct)) ? s.quiz.correct : 0,
     }));
     renderCards();
     renderQR();
@@ -224,6 +236,18 @@
           <button class="ce-loc${hasPin(c) ? " ok" : ""}">📍 Use my location</button>
           <span class="ce-pin"></span>
           <button class="ce-del danger ghost">🗑️ Delete</button>
+        </div>
+        <div class="ce-quiz">
+          <label>Question for this spot <span class="opt">(optional)</span></label>
+          <input class="cq-q" placeholder="e.g. How many swings are at this park?" value="${escapeAttr(c.q)}" />
+          <p class="qhint">Give up to 3 answers and tick the right one. Kids keep tapping until they get it.</p>
+          ${[0, 1, 2].map((k) => `
+            <div class="cq-row">
+              <label class="cq-mark" title="This is the right answer">
+                <input type="radio" name="ans${i}" class="cq-correct" value="${k}" ${c.correct === k ? "checked" : ""} />
+              </label>
+              <input class="cq-a" data-k="${k}" placeholder="Answer ${k + 1}${k === 0 ? " (tick if this one's right)" : ""}" value="${escapeAttr(c.choices[k] || "")}" />
+            </div>`).join("")}
         </div>`;
 
       const emojiBtn = el.querySelector(".ce-emoji");
@@ -255,6 +279,11 @@
       name.oninput = () => (c.name = name.value);
       delBtn.onclick = () => { cards.splice(i, 1); renderCards(); renderQR(); };
 
+      const qBox = el.querySelector(".cq-q");
+      qBox.oninput = () => (c.q = qBox.value);
+      el.querySelectorAll(".cq-a").forEach((a) => { a.oninput = () => (c.choices[+a.dataset.k] = a.value); });
+      el.querySelectorAll(".cq-correct").forEach((r) => { r.onchange = () => (c.correct = +r.value); });
+
       locBtn.onclick = () => {
         if (!("geolocation" in navigator)) { pin.textContent = "No GPS on this device."; return; }
         locBtn.textContent = "📡 Getting location…"; locBtn.disabled = true;
@@ -280,7 +309,10 @@
     if (!cards.length) box.innerHTML = `<p class="note">No cards yet. Tap <b>➕ Add a card</b> to begin.</p>`;
   }
 
-  $("addBtn").onclick = () => { cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code: newCode(), acc: null }); renderCards(); };
+  $("addBtn").onclick = () => {
+    cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code: newCode(), acc: null, q: "", choices: [], correct: 0 });
+    renderCards();
+  };
   $("clearBtn").onclick = () => {
     if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); renderQR(); }
   };
@@ -293,7 +325,18 @@
       code: c.code || newCode(),
       ll: hasPin(c) ? [+c.lat, +c.lng] : null,
       park: !!c.park,
+      quiz: toQuiz(c),
     }));
+  }
+  // a question needs at least two answers to be a choice; anything less is skipped
+  function toQuiz(c) {
+    const q = (c.q || "").trim();
+    const choices = (c.choices || []).map((a) => (a || "").trim());
+    const kept = choices.filter(Boolean);
+    if (!q || kept.length < 2) return null;
+    // the tick refers to a slot, which may shift once blanks are dropped
+    const right = choices[c.correct] && choices[c.correct].trim();
+    return { q, choices: kept, correct: Math.max(0, kept.indexOf(right)) };
   }
 
   $("publishBtn").onclick = async () => {

@@ -10,8 +10,14 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 - **Each stop has a unique hex code**; scanning `/?c=<code>` is the only way to stamp it.
 - **Pannable, real-map style** neighborhood with pinch-zoom and pins that shrink to
   small map dots when zoomed out.
-- **Live GPS**: a blue "you are here" dot plus a 🔥 warmer / ❄️ colder hunt meter that
-  points at the nearest unfound stop. Works without GPS too — the dot just doesn't show.
+- **Live GPS**: a blue "you are here" dot on the map. Works without GPS too — the dot
+  just doesn't show, and the guide asks for location when you open a stop.
+- **The map reads at a glance**: a stop you've found is a bright badge wearing its
+  sticker and a green ✓, with a green name label; one still to find is a faded emoji
+  under a red ❓ that bobs for attention.
+- **A question at every stop**, written by the hider: one question, up to three answers,
+  tapped until the right one lands (wrong ones dim and say "have another go" — nobody is
+  ever out). A stop with no question written just doesn't show the box.
 - **Your guide walks you in**: tap a stop you haven't found and your chosen buddy shows
   up in the card, bobbing along and talking to you from a speech bubble — several lines
   per mood (picked fresh each time the situation changes, and they use the kid's name),
@@ -50,7 +56,7 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | Path | Purpose |
 |---|---|
 | `index.html` / `app.js` / `styles.css` / `data.js` | The game (`data.js` holds the built-in/offline default stops) |
-| `setup.html` | **Hider-only, code-locked (8979)** card editor: name each stop, pick its picture, drop its pin by standing there, publish, print the QR + code sheets |
+| `setup.html` | **Hider-only, code-locked (8979)** card editor: name each stop, pick its picture, write its question + answers, drop its pin by standing there, publish, print the QR + code sheets |
 | `stats.html` | Live scan dashboard |
 | `api/config.js` | Stores/serves the hider's published cards (`nq:config`); publishing bumps the season |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
@@ -71,6 +77,12 @@ The site address is hard-coded to `https://neighborhood-quest.vercel.app/` in
 app ever moves. In setup, **Start a fresh hunt** is off by default: publishing only
 updates the cards, and nobody loses their stamps unless you tick it. A card's picture also
 decides whether the map draws grass and trees around that pin (the outdoorsy ones do).
+
+Each card can carry a question — "How many swings are at this park?", "Does this park
+have a slide?", "What's the name of this park?" — with up to three answers and a tick on
+the right one. It shows once the kid has stamped that stop, and they tap until they get
+it. Leave the question blank for no quiz. Blank answer slots are dropped on publish and
+the tick follows its answer, so you can't accidentally mark the wrong one right.
 
 ## Missing-sticker email alerts (optional)
 `api/scan.js` emails the hider when a child reports a sign is gone. It uses

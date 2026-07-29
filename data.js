@@ -30,8 +30,7 @@ let STOPS = [
     ll: [47.267724, -122.222273],
     intro: "You're at Terminal Park Elementary — welcome, explorer!",
     easy: "Give a big cheer for school! Find something with the letter A on it. 🔤",
-    bonus: "How many letters are in the word SCHOOL? Try spelling it out loud!",
-    answer: "S-C-H-O-O-L — that's 6 letters! 🔤",
+    quiz: { q: "How many letters are in the word SCHOOL?", choices: ["5","6","7"], correct: 1 },
   },
   {
     id: 2, name: "Lakeland Hills Park", emoji: "🎡", sticker: "🛝", color: "#7ecb73", pos: [40, 36],
@@ -40,8 +39,7 @@ let STOPS = [
     ll: [47.2595, -122.2113],
     intro: "Lakeland Hills Park! The big playground with room to run.",
     easy: "Go down a slide or swing up high — wheee! 🛝",
-    bonus: "Riddle: I go up when you push and back when you pull. You sit on me at the park. What am I?",
-    answer: "A swing! 🛝",
+    quiz: { q: "I go up when you push me and back when you pull. What am I?", choices: ["A slide","A swing","A tree"], correct: 1 },
   },
   {
     id: 3, name: "Evergreen Park", emoji: "🌲", sticker: "🌲", color: "#ffb24b", pos: [69, 34],
@@ -50,8 +48,7 @@ let STOPS = [
     ll: [47.26072, -122.195542],
     intro: "Evergreen Park — surrounded by tall green trees!",
     easy: "Find the tallest tree you can and give it a big high-five! 🌲",
-    bonus: "Evergreen trees stay green all year long. Can you name another thing that's always green?",
-    answer: "Grass, pine trees, or even a frog! 🌲",
+    quiz: { q: "What do evergreen trees do all winter long?", choices: ["Stay green","Turn blue","Lose every leaf"], correct: 0 },
   },
   {
     id: 4, name: "Alcove Park", emoji: "🌳", sticker: "🍃", color: "#7ecb73", pos: [58, 65],
@@ -60,8 +57,7 @@ let STOPS = [
     ll: [47.251373, -122.200515],
     intro: "Alcove Park — a little green hideaway!",
     easy: "Find a leaf and see how many colors are on it. 🍃",
-    bonus: "Pick up a leaf and look closely — how many little lines (veins) can you spot?",
-    answer: "Every leaf is different — nice looking! 🍃",
+    quiz: { q: "What are the little lines on a leaf called?", choices: ["Veins","Roots","Branches"], correct: 0 },
   },
   {
     id: 5, name: "Sunrise Montessori", emoji: "🎓", sticker: "☀️", color: "#5ec8ff", pos: [50, 59],
@@ -69,8 +65,7 @@ let STOPS = [
     ll: [47.2528, -122.2065],
     intro: "Sunrise Montessori — where little learners grow!",
     easy: "The sun rises in the east. Point which way you think is east! ☀️",
-    bonus: "The sun rises in the east. So which direction does it set?",
-    answer: "The west! 🌇",
+    quiz: { q: "The sun rises in the east. Which way does it set?", choices: ["North","West","South"], correct: 1 },
   },
   {
     id: 6, name: "Lakeland Hills School", emoji: "🏫", sticker: "📚", color: "#4ec5c1", pos: [32, 55],
@@ -78,8 +73,7 @@ let STOPS = [
     ll: [47.2543, -122.2151],
     intro: "Lakeland Hills Elementary — right in the heart of the neighborhood!",
     easy: "Give the school a big wave and find a window to count. 🪟",
-    bonus: "Guess how many windows are on the school, then count to check. Were you close?",
-    answer: "You're a super counter! 🪟",
+    quiz: { q: "What do you call the person who teaches your class?", choices: ["A teacher","A chef","A pilot"], correct: 0 },
   },
   {
     id: 7, name: "Dorothy Bothell Park", emoji: "🛝", sticker: "🌸", color: "#ff7aa8", pos: [33, 47],
@@ -88,8 +82,7 @@ let STOPS = [
     ll: [47.2566, -122.2157],
     intro: "Dorothy Bothell Park — the little park with swings!",
     easy: "Find the swings and count how many there are! 🛝",
-    bonus: "Riddle: I have a seat but no legs, and I swing back and forth all day. What am I?",
-    answer: "A swing! 🛝",
+    quiz: { q: "I have a seat but no legs, and I swing all day. What am I?", choices: ["A swing","A slide","A bench"], correct: 0 },
   },
   {
     id: 8, name: "Sunset Park", emoji: "🌇", sticker: "🏆", color: "#ffd84b", pos: [39, 84],
@@ -98,8 +91,7 @@ let STOPS = [
     ll: [47.2459, -122.2119],
     intro: "Sunset Park — a golden place to explore!",
     easy: "Strike a pose like you're watching a beautiful sunset! 🌇",
-    bonus: "How many colors can you spot in a real sunset? Try to name three!",
-    answer: "Red, orange, pink, purple — so pretty! 🌅",
+    quiz: { q: "Which color do you often see in a sunset?", choices: ["Orange","Black","Grey"], correct: 0 },
   },
 ];
 
@@ -126,7 +118,18 @@ function stopByCode(code) {
 const NQ_CONFIG_KEY = "nq_config";
 const NQ_PALETTE = ["#ff9db1", "#7ecb73", "#ffb24b", "#5ec8ff", "#c79bff", "#ff7aa8", "#4ec5c1", "#ffd84b", "#8ce6b0", "#79c24a"];
 
-// Turn a lean setup card {name, emoji, code, ll, park} into a full STOPS entry,
+// A stop's quiz: one question, up to three answers, one of them right. Anything
+// half-filled in the setup editor just means "no quiz on this card".
+function nqNormalizeQuiz(q) {
+  if (!q || typeof q !== "object") return null;
+  const question = (q.q || "").toString().trim();
+  const choices = (Array.isArray(q.choices) ? q.choices : []).map((c) => (c || "").toString().trim()).filter(Boolean).slice(0, 3);
+  if (!question || choices.length < 2) return null;
+  const correct = Number.isInteger(q.correct) && q.correct >= 0 && q.correct < choices.length ? q.correct : 0;
+  return { q: question, choices, correct };
+}
+
+// Turn a lean setup card {name, emoji, code, ll, park, quiz} into a full STOPS entry,
 // auto-filling a friendly generic mission so the hider only enters name+emoji+pin.
 function nqNormalizeStop(s, i) {
   const emoji = (s.emoji || "📍").toString();
@@ -142,8 +145,7 @@ function nqNormalizeStop(s, i) {
     park: !!s.park,
     intro: s.intro || `You found ${name} — awesome exploring! 🎉`,
     easy: s.easy || `You made it to ${name}! Look all around and find something ${emoji}.`,
-    bonus: s.bonus || `Big-kid challenge: how many things can you count from right here in 10 seconds?`,
-    answer: s.answer || `Great counting — you're a super explorer! ⭐`,
+    quiz: nqNormalizeQuiz(s.quiz),
   };
 }
 

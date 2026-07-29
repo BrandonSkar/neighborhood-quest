@@ -19,6 +19,19 @@ const redis = url && token ? new Redis({ url, token }) : null;
 const CONFIG = "nq:config";
 const SETUP_CODE = "8979"; // gate for publishing (kept simple — this is a kids' game)
 
+// One question, up to three answers, one right. Half-filled means no quiz.
+function sanitizeQuiz(q) {
+  if (!q || typeof q !== "object") return null;
+  const question = (q.q || "").toString().slice(0, 140).trim();
+  const choices = (Array.isArray(q.choices) ? q.choices : [])
+    .map((c) => (c || "").toString().slice(0, 60).trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  if (!question || choices.length < 2) return null;
+  const correct = Number.isInteger(q.correct) && q.correct >= 0 && q.correct < choices.length ? q.correct : 0;
+  return { q: question, choices, correct };
+}
+
 function sanitizeStops(arr) {
   if (!Array.isArray(arr)) return [];
   return arr
@@ -37,6 +50,7 @@ function sanitizeStops(arr) {
         code,
         ll,
         park: !!s.park,
+        quiz: sanitizeQuiz(s.quiz),
       };
     })
     .filter((s) => s.name && s.ll); // a card is only real with a name AND a dropped pin

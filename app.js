@@ -162,15 +162,18 @@ function mapFrame() {
   };
 }
 
+// A found stop wears its sticker and a green ✓; one still to find is a faded emoji
+// with a red ? that bobs — tellable apart across a whole map at a glance.
 function stopIcon(s) {
   const found = isFound(s);
-  const color = found ? "#1fae67" : "#ef3d4e";        // green = found, red = not yet
+  const color = found ? "#1fae67" : "#ef3d4e";
   return L.divIcon({
     className: "qpin-wrap",
-    html: `<div class="qpin${found ? " found" : ""}" style="--pc:${color}"><span>${s.emoji}</span></div>`,
+    html: `<div class="qpin${found ? " found" : ""}" style="--pc:${color}"><span>${found ? s.sticker : s.emoji}</span></div>`,
     iconSize: [40, 48], iconAnchor: [20, 46], tooltipAnchor: [0, -48],
   });
 }
+const pinLabel = (s) => (isFound(s) ? "✓ " + s.name : s.name);
 
 function initLeaflet() {
   if (lmap || typeof L === "undefined") return;
@@ -219,7 +222,8 @@ function initLeaflet() {
   STOPS.forEach((s) => {
     if (!s.ll) return;
     const m = L.marker(s.ll, { icon: stopIcon(s) }).addTo(lmap)
-      .bindTooltip(s.name, { permanent: true, direction: "top", className: "pin-label", offset: [0, -4] });
+      .bindTooltip(pinLabel(s), { permanent: true, direction: "top",
+        className: "pin-label" + (isFound(s) ? " done" : ""), offset: [0, -4] });
     m.on("click", () => openStop(s.id));               // view-only: opens the card, never stamps
     leafMarkers[s.id] = m;
   });
@@ -243,10 +247,9 @@ function showMap() {
   startGeo();
 }
 
-// ---------- GPS: "you are here" dot + warmer/colder hunt meter ----------
+// ---------- GPS: the "you are here" dot, and the fix the guide steers by ----------
 let youMarker = null, youAccuracy = null, geoWatchId = null;
 let lastFix = null;                 // [lat, lng] of the child's phone
-let lastNearestDist = null, lastNearestStopId = null;
 
 function haversine(a, b) {          // meters between two [lat, lng] points
   const R = 6371000, toRad = (d) => (d * Math.PI) / 180;
@@ -254,25 +257,6 @@ function haversine(a, b) {          // meters between two [lat, lng] points
   const h = Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
-}
-// Kids don't read metres, so nothing in the game ever shows them — how far away a spot
-// is always comes out as words they already understand.
-function nearWord(m) {
-  if (m < 12) return "you're here! 🎯";
-  if (m < 30) return "super close!";
-  if (m < 80) return "really close";
-  if (m < 200) return "close by";
-  if (m < 600) return "a little walk";
-  return "a big walk";
-}
-function nearestUnfound(pos) {
-  let best = null, bestD = Infinity;
-  for (const s of STOPS) {
-    if (!s.ll || isFound(s)) continue;
-    const d = haversine(pos, s.ll);
-    if (d < bestD) { bestD = d; best = s; }
-  }
-  return best ? { stop: best, dist: bestD } : null;
 }
 function startGeo() {
   if (geoWatchId != null || !("geolocation" in navigator)) return;
@@ -299,29 +283,7 @@ function onFix(lat, lng, acc) {
       youAccuracy.setLatLng(ll).setRadius(acc || 30);
     }
   }
-  updateHuntMeter();
   updateStopGuide();
-}
-function updateHuntMeter() {
-  const el = $("huntMeter"); if (!el) return;
-  if (!lastFix || $("game").classList.contains("hidden")) { el.classList.add("hidden"); return; }
-  const near = nearestUnfound(lastFix);
-  if (!near) {
-    $("huntText").innerHTML = "You found them all! 🏆";
-    $("huntTemp").textContent = "";
-    el.classList.remove("hidden");
-    lastNearestDist = null; lastNearestStopId = null;
-    return;
-  }
-  let temp = "";
-  if (lastNearestStopId === near.stop.id && lastNearestDist != null) {
-    if (near.dist < lastNearestDist - 3) temp = "🔥 warmer!";
-    else if (near.dist > lastNearestDist + 3) temp = "❄️ colder";
-  }
-  lastNearestDist = near.dist; lastNearestStopId = near.stop.id;
-  $("huntText").innerHTML = `Nearest: <b>${near.stop.name}</b> · ${nearWord(near.dist)}`;
-  $("huntTemp").textContent = temp;
-  el.classList.remove("hidden");
 }
 
 // ---------- boot ----------
@@ -410,7 +372,14 @@ function say(t) { $("speech").textContent = t; }
 // ---------- markers / map ----------
 // Every stop is independent (no order) — pins just show found (green) vs not (red).
 function refreshMarkers() {
-  for (const s of STOPS) if (leafMarkers[s.id]) leafMarkers[s.id].setIcon(stopIcon(s));
+  for (const s of STOPS) {
+    const m = leafMarkers[s.id];
+    if (!m) continue;
+    m.setIcon(stopIcon(s));
+    m.setTooltipContent(pinLabel(s));
+    const tip = m.getTooltip();
+    if (tip && tip._container) tip._container.classList.toggle("done", isFound(s));
+  }
 }
 function refreshProgress() {
   const n = foundCount(), total = STOPS.length;
@@ -418,7 +387,6 @@ function refreshProgress() {
   $("hpNow").textContent = n;
   $("hpFill").style.width = (n / total * 100) + "%";
   refreshMarkers();
-  updateHuntMeter();
 }
 
 // ---------- lifetime totals + badges on the home hub ----------
@@ -514,9 +482,6 @@ function openStop(id) {
   const found = isFound(s);
   $("cardGuide").textContent = mascotById(state.mascot).emoji;
   $("stopName").textContent = s.name;
-  $("stopAnswer").classList.add("hidden");
-  $("bonusBox").classList.add("hidden");
-  $("bonusToggle").textContent = "🧠 Big Kid Challenge";
   $("stopNote").classList.add("hidden");
   $("stopNote").classList.remove("good");
   // Reveal the card BEFORE filling it in: the guide below only paints into a visible
@@ -535,18 +500,58 @@ function openStop(id) {
     $("stopBadge").textContent = s.emoji;
     $("stopIntro").textContent = s.intro;
     $("stopEasy").textContent = s.easy;
-    $("stopBonus").textContent = s.bonus;
-    $("stopAnswer").textContent = s.answer;
     $("missionWrap").classList.remove("hidden");
-    $("bonusToggle").classList.remove("hidden");
+    renderQuiz(s);
     stopGuiding();
   } else {
     $("stopBadge").textContent = "❓";
     $("stopIntro").textContent = `Let's go find ${s.name}!`;
     $("missionWrap").classList.add("hidden");
-    $("bonusToggle").classList.add("hidden");
+    $("quizWrap").classList.add("hidden");
     startGuiding(s);
   }
+}
+
+// ---------- the hider's question, answered by tapping ----------
+// Wrong answers just dim and stay put — the child keeps choosing until it clicks,
+// which is the whole point: nobody is out, everybody gets there.
+function renderQuiz(s) {
+  const wrap = $("quizWrap"), box = $("quizChoices"), msg = $("quizMsg");
+  const quiz = s.quiz;
+  box.innerHTML = "";
+  msg.textContent = ""; msg.className = "quiz-msg hidden";
+  if (!quiz || !quiz.q || !Array.isArray(quiz.choices) || quiz.choices.length < 2) {
+    wrap.classList.add("hidden");
+    return;
+  }
+  $("quizQ").textContent = quiz.q;
+  quiz.choices.forEach((text, i) => {
+    const b = document.createElement("button");
+    b.className = "quiz-choice";
+    b.textContent = text;
+    b.onclick = () => answerQuiz(b, i === quiz.correct);
+    box.appendChild(b);
+  });
+  wrap.classList.remove("hidden");
+}
+function answerQuiz(btn, right) {
+  if (btn.classList.contains("wrong") || $("quizMsg").classList.contains("win")) return;
+  const msg = $("quizMsg");
+  msg.classList.remove("hidden");
+  if (!right) {
+    btn.classList.add("wrong", "shake");
+    setTimeout(() => btn.classList.remove("shake"), 400);
+    msg.textContent = "Not quite — have another go! 🤔";
+    msg.className = "quiz-msg";
+    return;
+  }
+  btn.classList.remove("wrong");
+  btn.classList.add("right");
+  [...$("quizChoices").children].forEach((c) => { if (c !== btn) c.disabled = true; });
+  msg.textContent = "That's it! You got it! 🎉";
+  msg.className = "quiz-msg win";
+  chime();
+  miniConfetti();
 }
 
 // ---------- your guide walks you to a stop you haven't found ----------
@@ -1102,11 +1107,6 @@ $("gnCompass").onclick = askCompass;
 $("codeBtn").onclick = () => openCodeBox($("codeForm").classList.contains("hidden"));
 $("codeForm").onsubmit = submitTypedCode;
 $("stickerGoneBtn").onclick = reportStickerMissing;
-$("bonusToggle").onclick = () => {
-  const hidden = $("bonusBox").classList.toggle("hidden");
-  $("bonusToggle").textContent = hidden ? "🧠 Big Kid Challenge" : "🙈 Hide Challenge";
-};
-$("revealBtn").onclick = () => $("stopAnswer").classList.remove("hidden");
 $("scanSkip").onclick = skipArrival;
 $("playAgain").onclick = () => {
   state.visited = []; save(); syncDevice();   // keep the dashboard in step with the reset

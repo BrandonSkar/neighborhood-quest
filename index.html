@@ -74,10 +74,6 @@
 
   <div class="map-wrap">
       <div id="map" class="map"></div>
-      <div id="huntMeter" class="hunt-meter hidden">
-        <span id="huntText" class="hunt-text"></span>
-        <span id="huntTemp" class="hunt-temp"></span>
-      </div>
     </div>
   </section>
 
@@ -117,11 +113,11 @@
       </div>
       <p id="stopEasy" class="mission-text"></p>
     </div>
-    <button id="bonusToggle" class="bonus-toggle">🧠 Big Kid Challenge</button>
-    <div id="bonusBox" class="bonus-box hidden">
-      <p id="stopBonus" class="mission-text"></p>
-      <button id="revealBtn" class="reveal-btn">Show the answer 👀</button>
-      <p id="stopAnswer" class="answer hidden"></p>
+    <div id="quizWrap" class="quiz hidden">
+      <span class="quiz-tag">🤔 Quiz time!</span>
+      <p id="quizQ" class="quiz-q"></p>
+      <div id="quizChoices" class="quiz-choices"></div>
+      <p id="quizMsg" class="quiz-msg hidden"></p>
     </div>
     <p id="stopNote" class="stop-note hidden"></p>
     <button id="scanStickerBtn" class="big-btn scan-btn">📷 Scan sticker</button>
