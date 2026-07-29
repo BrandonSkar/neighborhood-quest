@@ -361,7 +361,12 @@ function goHome() {
   show("home");
   const m = mascotById(state.mascot);
   $("homeGreeting").textContent = state.name ? `Hi, ${state.name}!` : "Hi, Explorer!";
-  homeSpeak(`I'm ${m.name} ${m.emoji}. Ready for an adventure?`);
+  homeSpeak(huntEmpty()
+    ? `I'm ${m.name} ${m.emoji}. The treasures are still being hidden! 🗺️`
+    : `I'm ${m.name} ${m.emoji}. Ready for an adventure?`);
+  $("homeHint").textContent = huntEmpty()
+    ? "No stickers are out yet — check back soon and we'll go exploring! 🗺️"
+    : "Out exploring? Scan a QR sticker at a park or school to stamp your passport! 🎯";
   refreshProgress();
   renderLifetime();
   refreshInstallButton();
@@ -382,11 +387,16 @@ function refreshMarkers() {
     if (tip && tip._container) tip._container.classList.toggle("done", isFound(s));
   }
 }
+// True while the grown-up has printed stickers but not taped any up yet, so the
+// published hunt has no playable stops. Everything that divides by the stop count has
+// to cope with it.
+const huntEmpty = () => STOPS.length === 0;
+
 function refreshProgress() {
   const n = foundCount(), total = STOPS.length;
   $("progressNow").textContent = n;
   $("hpNow").textContent = n;
-  $("hpFill").style.width = (n / total * 100) + "%";
+  $("hpFill").style.width = (total ? (n / total) * 100 : 0) + "%";
   refreshMarkers();
 }
 
@@ -1018,8 +1028,9 @@ function openPassport() {
     grid.appendChild(d);
   });
   const n = foundCount();
-  $("passportSub").textContent = (STOPS.length > 0 && n >= STOPS.length)
-    ? "You collected them ALL! 🎉" : `You have ${n} of ${STOPS.length} treasures!`;
+  $("passportSub").textContent = huntEmpty() ? "Your passport is waiting for a hunt! 🗺️"
+    : n >= STOPS.length ? "You collected them ALL! 🎉"
+    : `You have ${n} of ${STOPS.length} treasures!`;
   $("passportModal").classList.remove("hidden");
 }
 
@@ -1084,7 +1095,9 @@ function bigConfetti() { spawn(160, 20); setTimeout(() => spawn(120, 18), 400); 
 $("btnMap").onclick = () => {
   show("game"); refreshProgress();
   const left = STOPS.length - foundCount();
-  say(left > 0 ? `Explore the map and scan any QR sticker you find! ${left} treasure${left > 1 ? "s" : ""} left.` : "You found them all! 🏆");
+  say(huntEmpty() ? "The hunt is being set up — check back soon! 🗺️"
+    : left > 0 ? `Explore the map and scan any QR sticker you find! ${left} treasure${left > 1 ? "s" : ""} left.`
+    : "You found them all! 🏆");
 };
 $("btnPassport").onclick = openPassport;
 $("btnChangeGuide").onclick = () => {

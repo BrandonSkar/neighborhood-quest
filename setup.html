@@ -36,6 +36,12 @@
 
   /* ---- card editor ---- */
   .card-edit{border:1px solid #e2e8f4;border-radius:12px;padding:12px;margin-bottom:12px;background:#fafcff;}
+  /* the code is how a sticker in your hand finds its card on screen */
+  .ce-head{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+  .ce-code{font-family:"Consolas",ui-monospace,monospace;font-size:21px;font-weight:800;letter-spacing:2px;
+    color:#2a3346;background:#eef2fb;border:1px solid #dbe3f2;border-radius:9px;padding:3px 10px;}
+  .ce-state{font-size:12px;font-weight:800;color:#a0abc2;text-transform:uppercase;letter-spacing:.4px;}
+  .ce-state.ok{color:#118a52;}
   .ce-top{display:flex;gap:10px;align-items:center;}
   .ce-emoji{width:64px;flex:0 0 64px;font-size:30px;line-height:1;padding:9px 0;background:#fff;
     color:inherit;border:2px solid #cdd6e8;border-radius:10px;}
@@ -77,6 +83,7 @@
   .qr{background:#fff;border:2px dashed #b9c4dc;border-radius:16px;padding:14px;text-align:center;break-inside:avoid;}
   .qr .em{font-size:34px;}
   .qr h3{margin:4px 0;font-size:17px;}
+  .qr .qsub{margin:0 0 6px;font-size:13px;font-weight:700;color:#7a89a6;}
   .qr img{width:100%;max-width:200px;height:auto;image-rendering:pixelated;}
   .qr .url{font-size:11px;color:#8a97b2;word-break:break-all;margin-top:6px;}
   .qr .cut{font-size:12px;color:#b9c4dc;margin-top:6px;}
@@ -112,7 +119,7 @@
 
   <div class="panel">
     <h2 style="margin-top:2px;">Cards</h2>
-    <p class="note" style="margin-top:0;">Stand where the printout will go and tap <b>📍 Use my location</b> on that card — that's the pin the kids' warmer/colder hunt points at. Tap the picture to change it; outdoorsy pictures also get grass and trees drawn around them on the map.</p>
+    <p class="note" style="margin-top:0;"><b>Print first, decide later.</b> Add a card per sticker you want to carry and publish — every sticker prints the same, so nothing is committed to a place yet. Out walking: tape one up, find its card by the <b>code</b> printed on it, then tap <b>📍 Use my location</b>, name the spot and pick a picture. Publish again when you're home. Outdoorsy pictures get grass and trees drawn around them on the map.</p>
     <div id="cards"></div>
     <div class="toolbar">
       <button id="addBtn" class="ghost">➕ Add a card</button>
@@ -151,7 +158,7 @@
 
   <div class="panel noprint">
     <h2 style="margin-top:2px;">Print the QR codes</h2>
-    <p class="note" style="margin-top:0;">One code per card. Cut them out, laminate if you like, and tape each at its dropped-pin spot. Each sheet also prints the <b>typed code</b>, so a kid whose camera won't cooperate can enter it in the app instead.</p>
+    <p class="note" style="margin-top:0;">Every sticker is the same generic <b>Neighborhood Quest</b> card — no place name on it, so you can tape any one anywhere. Cut them out, laminate if you like, and carry them on your walk. The big <b>code</b> is what a kid types when their camera won't cooperate, and what tells you which card above belongs to the sticker in your hand.</p>
     <div class="toolbar">
       <button id="refreshQR" class="ghost">🔄 Refresh sheet</button>
       <button onclick="window.print()">🖨️ Print sheet</button>
@@ -250,6 +257,8 @@
 
   // ---- render the editable cards ----
   const hasPin = (c) => c.lat !== "" && c.lng !== "" && isFinite(+c.lat) && isFinite(+c.lng);
+  // "ready" = the kids can actually play it: it's been given a spot and a name
+  const ready = (c) => !!(hasPin(c) && (c.name || "").trim());
 
   function renderCards() {
     const box = $("cards"); box.innerHTML = "";
@@ -257,8 +266,11 @@
       const el = document.createElement("div");
       el.className = "card-edit";
       el.innerHTML = `
+        <div class="ce-head">
+          <span class="ce-code" title="Printed on this card's sticker">${escapeHtml(c.code)}</span>
+          <span class="ce-state${ready(c) ? " ok" : ""}">${ready(c) ? "✓ placed" : "waiting for a spot"}</span>
+        </div>
         <div class="ce-top">
-          <span class="ce-num">${i + 1}</span>
           <button class="ce-emoji" title="Tap to choose a picture">${escapeHtml(c.emoji)}</button>
           <input class="ce-name" placeholder="Name (e.g. Big Oak Tree)" value="${escapeAttr(c.name)}" aria-label="Name" />
         </div>
@@ -290,10 +302,16 @@
       const pin = el.querySelector(".ce-pin");
       const delBtn = el.querySelector(".ce-del");
 
+      const state = el.querySelector(".ce-state");
+      const showState = () => {
+        state.classList.toggle("ok", ready(c));
+        state.textContent = ready(c) ? "✓ placed" : "waiting for a spot";
+      };
       const showPin = () => {
         pin.classList.toggle("ok", hasPin(c));
         pin.textContent = !hasPin(c) ? "No pin yet"
           : c.acc != null ? `Pin dropped ±${Math.round(c.acc)} m` : "Pin saved ✓";
+        showState();
       };
       showPin();
 
@@ -309,7 +327,7 @@
           renderQR();
         };
       });
-      name.oninput = () => (c.name = name.value);
+      name.oninput = () => { c.name = name.value; showState(); };
       delBtn.onclick = () => { cards.splice(i, 1); renderCards(); renderQR(); };
 
       const qBox = el.querySelector(".cq-q");
@@ -345,6 +363,7 @@
   $("addBtn").onclick = () => {
     cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code: newCode(), acc: null, q: "", choices: [], correct: 0 });
     renderCards();
+    renderQR();     // a new card IS a new sticker — it has to appear on the sheet at once
   };
   $("clearBtn").onclick = () => {
     if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); renderQR(); }
@@ -372,24 +391,29 @@
     return { q, choices: kept, correct: Math.max(0, kept.indexOf(right)) };
   }
 
+  // Blank cards are published too, not dropped. That's the whole point: the codes have
+  // to live in the database from the moment you print them, or the batch you printed on
+  // the PC wouldn't exist when you open setup on your phone in the park. The game hides
+  // any card that hasn't been given a spot yet.
   $("publishBtn").onclick = async () => {
     const stops = toStops();
-    const ready = stops.filter((s) => s.name && s.ll);
-    const bad = stops.length - ready.length;
-    if (!ready.length) { setStatus("Add at least one card with a name and a dropped pin.", "err"); return; }
-    if (bad && !confirm(`${bad} card(s) are missing a name or a pin and will be skipped. Publish the other ${ready.length}?`)) return;
+    if (!stops.length) { setStatus("Add at least one card first.", "err"); return; }
+    const live = stops.filter((s) => s.name && s.ll).length;
+    const waiting = stops.length - live;
 
     const btn = $("publishBtn"); btn.disabled = true; setStatus("Publishing…", "");
     try {
       const r = await fetch("/api/config", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: SETUP_CODE, stops: ready, newHunt: $("newHunt").checked }),
+        body: JSON.stringify({ code: SETUP_CODE, stops, newHunt: $("newHunt").checked }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) { setStatus(j.error || "Publish failed. Is the site online with its database connected?", "err"); btn.disabled = false; return; }
       // keep this device's game in sync immediately
-      try { localStorage.setItem("nq_config", JSON.stringify({ season: j.season, stops: ready })); } catch {}
-      setStatus(`✅ Published ${j.count} card(s)${j.newHunt ? ` — new hunt, Season ${j.season}` : ` — pins updated`}.`, "ok");
+      try { localStorage.setItem("nq_config", JSON.stringify({ season: j.season, stops })); } catch {}
+      setStatus(`✅ Published ${j.count} card(s) — ${live} live for kids` +
+        (waiting ? `, ${waiting} waiting for a spot` : "") +
+        (j.newHunt ? ` — new hunt, Season ${j.season}` : "") + ".", "ok");
     } catch (e) {
       setStatus("Publish failed (no connection). Try again when online.", "err");
     }
@@ -449,26 +473,30 @@
 
   // ---- QR print sheet ----
   const qrImg = (url) => "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" + encodeURIComponent(url);
-  function qrCard(emoji, title, url, code) {
+  function qrCard(emoji, title, sub, url, code) {
     const el = document.createElement("div");
     el.className = "qr";
     el.innerHTML =
       `<div class="em">${escapeHtml(emoji)}</div>` +
       `<h3>${escapeHtml(title)}</h3>` +
+      (sub ? `<p class="qsub">${escapeHtml(sub)}</p>` : "") +
       `<img src="${qrImg(url)}" alt="QR for ${escapeAttr(title)}" />` +
-      // the typed fallback: kids who can't scan tap "Type the code instead" in the app
+      // the code is the sticker's real identity: it's how a kid stamps without a camera,
+      // and how YOU find this sticker's card in the list once it's taped up
       (code ? `<div class="codebox"><small>Can't scan? Open the app and type</small><b>${escapeHtml(code)}</b></div>` : "") +
       `<div class="cut">✂️ - - - - - - - - - -</div>` +
       `<div class="url">${escapeHtml(url)}</div>`;
     return el;
   }
+  // Every sticker looks the same on purpose. You print a batch before deciding anything,
+  // tape one wherever you like the look of, and name that spot afterwards — so the paper
+  // can't claim a place you haven't stood in yet.
   function renderQR() {
     const grid = $("grid"); grid.innerHTML = "";
     // intro/poster QR (opens the app with no stop)
-    grid.appendChild(qrCard("🏠", "Quest — Start Here", BASE, ""));
+    grid.appendChild(qrCard("🏠", "Quest — Start Here", "", BASE, ""));
     cards.forEach((c) => {
-      if (!c.name) return;
-      grid.appendChild(qrCard(c.emoji || "📍", c.name, BASE + "?c=" + c.code, c.code));
+      grid.appendChild(qrCard("🗺️", "Neighborhood Quest", "Scan me! 🎯", BASE + "?c=" + c.code, c.code));
     });
   }
   $("refreshQR").onclick = renderQR;

@@ -149,9 +149,18 @@ function nqNormalizeStop(s, i) {
   };
 }
 
+// The published set can include blank cards — stickers that are printed but not taped up
+// anywhere yet. Kids only ever see the ones with a real name and a dropped pin, so a
+// half-finished hunt never shows a mystery pin or inflates "3 / 9 treasures".
+//
+// An empty result still counts as applied: once the hider has published anything, that
+// IS the hunt, and quietly falling back to the built-in demo stops would put phantom
+// Lakeland stops on every kid's map mid-setup.
 function nqApplyConfig(c) {
-  if (!c || !Array.isArray(c.stops) || !c.stops.length) return false;
-  STOPS = c.stops.map(nqNormalizeStop);
+  if (!c || !Array.isArray(c.stops)) return false;
+  const live = c.stops.filter((s) => s && (s.name || "").toString().trim() &&
+    Array.isArray(s.ll) && s.ll.length === 2);
+  STOPS = live.map(nqNormalizeStop);
   if (Number.isInteger(c.season)) SEASON = c.season;
   return true;
 }

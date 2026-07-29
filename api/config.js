@@ -6,10 +6,13 @@
 // Storage is ONE key `nq:config` in Upstash Redis (a JSON blob), under the shared
 // "nq:" namespace so it sits alongside the scan/profile keys without collisions.
 //
-// `stops` is the lean editor shape: { name, emoji, code, ll:[lat,lng], park }. The
+// `stops` is the lean editor shape: { name, emoji, code, ll:[lat,lng], park, quiz }. The
 // front-end (data.js -> nqNormalizeStop) fleshes each one out with a generic kid
 // mission. Publishing bumps the season by default so every player's stamps reset for
 // the new hunt; send newHunt:false to just fix a pin without resetting anyone.
+//
+// A stop may be a blank placeholder — a printed sticker's code with no name or pin yet.
+// Those are stored as-is and hidden from the game until they're given a spot.
 import { Redis } from "@upstash/redis";
 
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -53,8 +56,11 @@ function sanitizeStops(arr) {
         park: !!s.park,
         quiz: sanitizeQuiz(s.quiz),
       };
-    })
-    .filter((s) => s.name && s.ll); // a card is only real with a name AND a dropped pin
+    });
+  // Cards with no name or pin are KEPT. A freshly printed sticker is a real card with
+  // nothing but a code, and that code has to survive until you're standing at the spot
+  // you want it at — possibly on a different device from the one that printed it. The
+  // game filters these out (data.js) so kids only ever see stops that exist.
 }
 
 export default async function handler(req, res) {
@@ -77,7 +83,7 @@ export default async function handler(req, res) {
       if ((b.code || "").toString() !== SETUP_CODE) { res.status(403).json({ error: "Wrong setup code." }); return; }
 
       const stops = sanitizeStops(b.stops);
-      if (!stops.length) { res.status(400).json({ error: "Add at least one card with a name and a dropped pin." }); return; }
+      if (!stops.length) { res.status(400).json({ error: "Add at least one card first." }); return; }
 
       const prev = (await redis.get(CONFIG)) || { season: 1 };
       const bumpSeason = b.newHunt !== false; // default: start a fresh hunt (resets stamps)

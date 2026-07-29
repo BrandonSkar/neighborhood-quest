@@ -77,7 +77,8 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 2. **Storage → Connect Database →** an existing Upstash Redis store. It injects
    `KV_REST_API_URL` / `KV_REST_API_TOKEN` automatically — nothing is hard-coded.
 3. Redeploy. Tables/keys are created on the first scan. Visit `/stats.html` to watch
-   scans, and `/setup.html` (code **8979**) to place pins and print the QR codes.
+   scans, and `/setup.html` (code **8979**) to print stickers and place pins — see
+   *Setting a hunt* below.
 
 The site address is hard-coded to `https://neighborhood-quest.vercel.app/` in
 `setup.html` (`BASE`) — that's what the printed QR links point at. Change it there if the
@@ -90,6 +91,24 @@ have a slide?", "What's the name of this park?" — with up to three answers and
 the right one. It shows once the kid has stamped that stop, and they tap until they get
 it. Leave the question blank for no quiz. Blank answer slots are dropped on publish and
 the tick follows its answer, so you can't accidentally mark the wrong one right.
+
+## Setting a hunt: print first, decide the places later
+Nothing is committed to a location until you're standing in it.
+
+1. **At the desk.** Add one card per sticker you want to carry. Don't name them. Hit
+   **Publish** — that's what saves the codes to the database — then print the sheet. Every
+   sticker comes out identical: 🗺️ *Neighborhood Quest*, a QR, and a big **code**. Cut
+   them out.
+2. **On the walk.** Find a spot you actually like, tape a sticker up, and open
+   `/setup.html` on your phone. Find the card whose code matches the sticker in your hand,
+   tap **📍 Use my location**, type a name and pick a picture. Repeat. A spot that turns
+   out to be rubbish just means you peel it off and re-drop the pin somewhere better.
+3. **Back home.** Add the questions, then **Publish** again with **Start a fresh hunt**
+   unticked so nobody loses their stamps.
+
+Cards with no name or pin are stored but hidden from the game, so kids never see a stop
+that doesn't exist yet — a card only goes live once it has both. Stickers you print but
+never place simply stay dormant; carry a couple of spares.
 
 ## Missing-sticker email alerts (optional)
 `api/scan.js` emails the hider when a child reports a sign is gone. It uses
