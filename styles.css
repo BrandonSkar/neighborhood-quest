@@ -135,16 +135,41 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
   background:radial-gradient(circle at 50% 38%,#fff,#d9ecff);box-shadow:0 6px 0 rgba(0,0,0,.08);}
 .gn-arrow{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   transition:transform .4s ease-out;filter:drop-shadow(0 3px 2px rgba(0,0,0,.22));}
+.gn-arrow svg{animation:gnNudge 1.9s ease-in-out infinite;}   /* "come on, this way!" */
+@keyframes gnNudge{0%,68%,100%{transform:translateY(0)}80%{transform:translateY(-7px)}90%{transform:translateY(-2px)}}
+.guide-nav.hot .gn-arrow svg{animation-duration:.95s;}
 .gn-arrow svg path{fill:#4aa8ff;}
 .guide-nav.hot .gn-arrow svg path{fill:#ff7043;}
 .gn-here{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:66px;}
 .guide-nav.arrived .gn-arrow{display:none;}
-.guide-nav.arrived .gn-here{display:flex;}
+.guide-nav.arrived .gn-here{display:flex;animation:gnHop .7s ease-in-out infinite;}
 .gn-n{position:absolute;top:5px;left:50%;transform:translateX(-50%);font-weight:900;font-size:13px;color:#9ab0c8;display:none;}
 .guide-nav.north-up:not(.arrived) .gn-n{display:block;}
 .guide-nav.searching .gn-arrow{opacity:.35;animation:spinSlow 2.6s linear infinite;}
 @keyframes spinSlow{to{transform:rotate(360deg)}}
-.gn-say{font-weight:900;font-size:18px;color:#2f6ea8;margin:8px 4px 10px;line-height:1.3;}
+/* the guide does the talking: a bobbing buddy with a speech bubble */
+.gn-talk{display:flex;align-items:flex-end;gap:9px;margin:10px 2px;}
+.gn-guide{flex:0 0 auto;font-size:46px;line-height:1;filter:drop-shadow(0 3px 2px rgba(0,0,0,.2));
+  animation:gnBob 1.7s ease-in-out infinite;transform-origin:50% 90%;}
+@keyframes gnBob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-5px) rotate(4deg)}}
+@keyframes gnHop{0%,100%{transform:translateY(0) scale(1)}45%{transform:translateY(-11px) scale(1.09)}}
+.guide-nav.hot .gn-guide{animation:gnHop .55s ease-in-out infinite;}
+.gn-guide.cheer{animation:gnHop .45s ease-in-out 2;}
+.gn-bubble{position:relative;flex:1;background:#fff;border-radius:18px;padding:11px 13px;text-align:left;
+  box-shadow:0 3px 0 rgba(0,0,0,.07);}
+.gn-bubble::before{content:"";position:absolute;left:-9px;bottom:13px;width:0;height:0;
+  border:9px solid transparent;border-right-color:#fff;border-left:0;}
+.gn-bubble.pop{animation:gnPop .34s cubic-bezier(.2,1.5,.4,1);}
+@keyframes gnPop{0%{transform:scale(.86)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+.gn-say{font-weight:900;font-size:17px;color:#2f6ea8;margin:0;line-height:1.32;}
+/* "🔥 warmer!" puffs up off the dial when you close the gap */
+.gn-burst{position:absolute;left:50%;bottom:-8px;transform:translate(-50%,0);white-space:nowrap;
+  font-weight:900;font-size:14px;color:#e2612c;background:#fff;border-radius:999px;padding:4px 11px;
+  box-shadow:0 3px 8px rgba(0,0,0,.18);opacity:0;pointer-events:none;}
+.gn-burst.go{animation:gnFloat 1.5s ease-out;}
+@keyframes gnFloat{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}
+  22%{opacity:1;transform:translate(-50%,-4px) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-34px) scale(1)}}
 .gn-bar{height:15px;border-radius:10px;background:#d3e6f6;overflow:hidden;margin:0 4px;}
 .gn-fill{height:100%;width:0;border-radius:10px;transition:width .45s ease-out;
   background:linear-gradient(90deg,#5ec8ff,#8ce6b0,#ffd54b,#ff7043);}
@@ -155,6 +180,13 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 @keyframes hotPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 .guide-nav.hot{background:#fff4e8;border-color:#ffb27a;}
 .guide-nav.hot .gn-say{color:#d4622a;}
+
+/* some kids (and parents) get queasy — honour the OS "reduce motion" switch */
+@media (prefers-reduced-motion: reduce){
+  .gn-guide,.guide-nav.hot .gn-guide,.gn-guide.cheer,.gn-arrow svg,
+  .guide-nav.hot .gn-dial,.guide-nav.arrived .gn-here,.gn-burst.go{animation:none;}
+  .gn-burst.go{opacity:1;}
+}
 
 .mission{background:#fff;border:4px dashed var(--sun);border-radius:20px;padding:12px 14px;margin:4px 0 12px;}
 .mission-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;}
@@ -179,6 +211,19 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .scan-btn{width:100%;margin-top:14px;background:#4aa8ff;}
 .done-btn{width:100%;margin-top:10px;background:var(--green);}
 
+/* type the code in — the way through when the camera is a no */
+.code-btn{width:100%;margin-top:10px;background:#fff;border:3px dashed #9ed0ff;border-radius:16px;
+  padding:11px 14px;font-family:inherit;font-weight:800;font-size:15px;color:#2f6ea8;cursor:pointer;}
+.code-btn:active{transform:translateY(2px);}
+.code-form{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+.code-input{font-family:"Consolas",ui-monospace,monospace;font-size:26px;font-weight:800;text-align:center;
+  letter-spacing:6px;text-transform:lowercase;padding:13px 12px;border:4px solid #9ed0ff;border-radius:16px;
+  background:#fff;color:#2a3346;width:100%;}
+.code-input:focus{outline:none;border-color:var(--green);}
+.code-input.shake{animation:shk .35s;}
+@keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.code-go{width:100%;background:var(--green);}
+
 /* ---------- In-app QR camera ---------- */
 .cam{position:fixed;inset:0;z-index:60;background:#0e141f;overflow:hidden;}
 .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0e141f;}
@@ -195,23 +240,6 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .cam-hint{color:#fff;font-weight:800;font-size:17px;margin:0 0 12px;line-height:1.35;
   text-shadow:0 2px 6px rgba(0,0,0,.6);}
 .cam-close{width:100%;max-width:420px;background:#5c6b83;}
-.cam-type{background:none;border:none;font-family:inherit;font-weight:800;font-size:16px;color:#ffd54b;
-  cursor:pointer;padding:10px;margin-bottom:4px;text-decoration:underline;}
-/* typed-code fallback for a sticker the camera won't read */
-.cam-code{display:flex;flex-direction:column;gap:10px;max-width:420px;margin:0 auto 6px;}
-.cam-code-input{font-family:"Consolas",ui-monospace,monospace;font-size:26px;font-weight:800;text-align:center;
-  letter-spacing:6px;text-transform:lowercase;padding:14px 12px;border:4px solid #ffd54b;border-radius:18px;
-  background:#fff;color:#2a3346;width:100%;}
-.cam-code-input:focus{outline:none;border-color:#7ecb73;}
-.cam-code-input.shake{animation:shk .35s;}
-@keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
-.cam-go{width:100%;background:var(--green);}
-/* keyboard up: float the panel to the top so it can't hide behind it, and calm the
-   live video down so the controls stay readable over it */
-.cam.typing .cam-bar{top:0;bottom:auto;padding:calc(16px + env(safe-area-inset-top)) 18px 26px;
-  background:linear-gradient(to bottom,rgba(10,15,25,.96) 72%,rgba(10,15,25,0));}
-.cam.typing .cam-frame{display:none;}
-.cam.typing .cam-video{filter:brightness(.35);}
 
 /* ---------- Passport ---------- */
 .passport-sub{color:#8a7a62;font-weight:700;margin:0 0 12px;}

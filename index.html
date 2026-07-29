@@ -84,7 +84,7 @@
 <!-- ============ STOP CARD (read-only from map / mission after scan) ============ -->
 <div id="stopModal" class="overlay hidden">
   <div class="card stop-card">
-    <div class="card-guide"><span id="cardGuide">🦊</span></div>
+    <div id="cardGuideWrap" class="card-guide"><span id="cardGuide">🦊</span></div>
     <div class="stop-badge" id="stopBadge">🌳</div>
     <h2 id="stopName">Stop</h2>
     <p id="stopIntro" class="intro"></p>
@@ -100,8 +100,12 @@
         </div>
         <span class="gn-here">🎯</span>
         <span class="gn-n">N</span>
+        <span id="gnBurst" class="gn-burst"></span>
       </div>
-      <p id="gnSay" class="gn-say">Let's go find it!</p>
+      <div class="gn-talk">
+        <span id="gnFace" class="gn-guide">🦊</span>
+        <div id="gnBubble" class="gn-bubble"><p id="gnSay" class="gn-say">Let's go find it!</p></div>
+      </div>
       <div class="gn-bar"><div id="gnFill" class="gn-fill"></div></div>
       <p id="gnSteps" class="gn-steps">Finding you on the map… 📍</p>
       <button id="gnCompass" class="gn-compass hidden">🧭 Point me the way</button>
@@ -122,6 +126,14 @@
     <p id="stopNote" class="stop-note hidden"></p>
     <button id="scanStickerBtn" class="big-btn scan-btn">📷 Scan sticker</button>
     <button id="closeStop" class="big-btn done-btn">Back to map 🗺️</button>
+    <!-- typing the code lives here, NOT inside the camera: a kid who says no to the
+         camera (or is never asked) still has a way to stamp the stop -->
+    <button id="codeBtn" class="code-btn">⌨️ Enter the code instead</button>
+    <form id="codeForm" class="code-form hidden" autocomplete="off">
+      <input id="codeInput" class="code-input" maxlength="12" placeholder="type the code"
+             aria-label="Sticker code" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <button type="submit" class="big-btn code-go">Stamp it! ✅</button>
+    </form>
     <button id="stickerGoneBtn" class="sticker-gone">🙈 Sticker Missing? Report it!</button>
   </div>
 </div>
@@ -132,12 +144,6 @@
   <div class="cam-frame"><span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span></div>
   <div class="cam-bar">
     <p id="camHint" class="cam-hint">Point at the QR sticker 🎯</p>
-    <form id="camCodeForm" class="cam-code hidden" autocomplete="off">
-      <input id="camCodeInput" class="cam-code-input" maxlength="12" placeholder="type the code"
-             aria-label="Sticker code" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-      <button type="submit" class="big-btn cam-go">Stamp it! ✅</button>
-    </form>
-    <button id="camTypeBtn" class="cam-type">⌨️ Type the code instead</button>
     <button id="camClose" class="big-btn cam-close">Cancel</button>
   </div>
 </div>

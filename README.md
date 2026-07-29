@@ -12,11 +12,15 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   small map dots when zoomed out.
 - **Live GPS**: a blue "you are here" dot plus a 🔥 warmer / ❄️ colder hunt meter that
   points at the nearest unfound stop. Works without GPS too — the dot just doesn't show.
-- **Your guide walks you in**: tap a stop you haven't found and the card shows a big
-  arrow pointing at the real spot, a hotness bar, and warmer/colder talk that refreshes on
-  every GPS fix. **Nothing in the game ever shows metres** — far away is "a little walk",
-  and a step count only appears once it's small enough to picture ("SO close — about 25
-  more steps!"). Walk the wrong way twice and it says so. The arrow follows the compass
+- **Your guide walks you in**: tap a stop you haven't found and your chosen buddy shows
+  up in the card, bobbing along and talking to you from a speech bubble — several lines
+  per mood (picked fresh each time the situation changes, and they use the kid's name),
+  a big arrow pointing at the real spot that nudges "come on, this way!", a cold-to-hot
+  bar, and a 🔥 warmer! puff off the dial each time you close the gap. Up close the whole
+  panel goes orange and the buddy starts hopping. **Nothing ever shows metres** — far is
+  "a little walk", and a step count only appears once it's small enough to picture ("SO
+  close — about 25 more steps!"). Walk the wrong way twice and it says so, with a ❄️ puff.
+  All the motion honours the OS "reduce motion" setting. The arrow follows the compass
   (iPhones ask first, via a 🧭 button); otherwise the dial goes north-up and the text
   names the direction. A stop you've already found shows just its mission and Back to
   map — no scanning tools in the way.
@@ -24,10 +28,11 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   reads the QR right inside the app, so nobody has to back out to the phone's camera app.
   Uses the browser's native `BarcodeDetector` when it exists and falls back to the
   vendored `vendor/jsqr/` decoder (iOS Safari has no detector). Works offline.
-- **Or type the code**: the same screen offers ⌨️ *Type the code instead* — every printed
-  sheet shows its code in big type. A correct code stamps the stop exactly like a scan
-  (case and spaces don't matter); a wrong one just says so. This opens by itself if the
-  camera is blocked or unavailable, so a borrowed or locked-down phone can still play.
+- **Or type the code**: ⌨️ *Enter the code instead* sits on the stop card itself, under
+  Back to map — deliberately not inside the camera screen, so a child who won't or can't
+  allow the camera never hits a dead end. Every printed sheet shows its code in big type.
+  A correct code stamps the stop exactly like a scan (case and spaces don't matter); a
+  wrong one just says so. Refusing the camera closes it and opens this box automatically.
 - **Missing-sticker report** (🙈 *Sticker Missing? Report it!* at the bottom of the stop
   card): asks the child to confirm, then **emails the hider** (see below) so you hear
   about a downed sign without checking the dashboard. If the stop isn't stamped yet and

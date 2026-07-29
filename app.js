@@ -525,7 +525,12 @@ function openStop(id) {
 
   // Found = a celebration card: mission recap only, no scanning tools to get in the way.
   $("scanStickerBtn").classList.toggle("hidden", found);
+  $("codeBtn").classList.toggle("hidden", found);
   $("stickerGoneBtn").classList.toggle("hidden", found);
+  // on a stop still to find, the guide lives in the directions panel doing the talking,
+  // so the decorative one at the top of the card would just be a second face
+  $("cardGuideWrap").classList.toggle("hidden", !found);
+  openCodeBox(false);                       // always start collapsed on a fresh card
   if (found) {
     $("stopBadge").textContent = s.emoji;
     $("stopIntro").textContent = s.intro;
@@ -568,8 +573,74 @@ const dirName = (d) => DIRS[Math.round(d / 45) % 8];
 const kidSteps = (m) => Math.max(5, Math.round((m * 2) / 5) * 5);
 const STEPS_MAX_M = 25;   // ~50 steps: past this the guide talks in warm/cold instead
 
+// Everything the guide says, in their own voice. Several lines per band so the same
+// walk never sounds identical twice; one is picked when the band changes, then kept
+// (so a step count can tick down without the sentence flickering).
+const GUIDE_LINES = {
+  far: [
+    (c) => `Big adventure walk ahead — follow me, ${c.name}! 🗺️`,
+    () => "Ooh, that one's far away. Ready? Let's march! 🥾",
+    (c) => `Stick with me, ${c.name}, I know the way! 🗺️`,
+  ],
+  onway: [
+    () => "We're on our way! Keep following me. 🧭",
+    (c) => `Good walking, ${c.name}! This way! 👣`,
+    () => "Nice and steady — I'll keep pointing! 🧭",
+  ],
+  warmer: [
+    () => "Getting warmer! Keep walking! 🔥",
+    () => "Ooh, warmer over here! Come on! 👣",
+    (c) => `We're closing in, ${c.name}! 🔥`,
+  ],
+  warm: [
+    () => "Really warm now — it's just around here! 🔥",
+    () => "Ooh ooh, VERY warm! Nearly there! 🔥",
+    () => "So close I can almost see it! 👀",
+  ],
+  close: [
+    (c) => `SO close — about ${c.n} more steps! 🔥🔥`,
+    (c) => `Just ${c.n} steps to go! Almost! 🎉`,
+    (c) => `${c.n} more steps, ${c.name} — I can feel it! 🔥🔥`,
+  ],
+  arrived: [
+    (c) => `We made it! 🎯 Find the ${c.sticker} sticker!`,
+    (c) => `This is the spot! Hunt for the ${c.sticker} sticker! 🔎`,
+    (c) => `Here we are! Look for the ${c.sticker} sticker! 🎯`,
+  ],
+  wrong: [
+    () => "Oops — that's colder! Let's turn around. ↩️",
+    () => "Hmm, wrong way! Follow me back. ↩️",
+    (c) => `Brr, chilly! This way instead, ${c.name}! ↩️`,
+  ],
+};
+function guideBand(d, wrong) {
+  if (d < 10) return "arrived";
+  if (wrong >= 2) return "wrong";
+  if (d < STEPS_MAX_M) return "close";
+  if (d < 80) return "warm";
+  if (d < 200) return "warmer";
+  if (d < 600) return "onway";
+  return "far";
+}
+let navBand = null, navLine = 0;
+
+function popBubble() {
+  const b = $("gnBubble");
+  b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
+}
+function guideCheer() {
+  const f = $("gnFace");
+  f.classList.remove("cheer"); void f.offsetWidth; f.classList.add("cheer");
+}
+function guideBurst(text) {
+  const el = $("gnBurst");
+  el.textContent = text;
+  el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+}
+
 function startGuiding(s) {
-  navStop = s; navBearing = null; navLastDist = null; navWrong = 0;
+  navStop = s; navBearing = null; navLastDist = null; navWrong = 0; navBand = null;
+  $("gnFace").textContent = mascotById(state.mascot).emoji;
   $("guideNav").classList.remove("hidden");
   startGeo();
   startCompass();
@@ -586,13 +657,17 @@ function updateStopGuide() {
   if (!s || $("stopModal").classList.contains("hidden")) return;
   const box = $("guideNav"), say = $("gnSay"), steps = $("gnSteps");
 
+  const guide = mascotById(state.mascot);
+  $("gnFace").textContent = guide.emoji;
+
   if (!s.ll || !lastFix) {
     box.classList.add("searching");
     box.classList.remove("hot", "north-up", "arrived");
+    navBand = null;
     say.textContent = s.ll
-      ? "Turn on your location and I'll show you the way! 📍"
+      ? "Hold on — let me find us on the map! 📍"
       : `Look for the ${s.emoji} sticker around ${s.name}! 🔍`;
-    steps.textContent = s.ll ? "Looking for you on the map…" : "";
+    steps.textContent = s.ll ? "Turn on your location and I'll point the way." : "";
     $("gnFill").style.width = "0%";
     $("gnCompass").classList.add("hidden");
     return;
@@ -604,38 +679,35 @@ function updateStopGuide() {
   paintArrow();
 
   // warmer / colder, from how the distance changed since the last fix
+  let closedIn = false;
   if (navLastDist != null) {
-    if (d < navLastDist - 3) navWrong = 0;
+    if (d < navLastDist - 3) { navWrong = 0; closedIn = d < navLastDist - 5; }
     else if (d > navLastDist + 3) navWrong++;
   }
+  const wasBand = navBand;
   navLastDist = d;
 
   box.classList.toggle("hot", d < 30);
   box.classList.toggle("arrived", d < 10);   // swaps the arrow for a 🎯 — no way left to point
 
-  const way = headingDeg != null ? "Follow my arrow ⬆️" : `Head ${dirName(navBearing)}`;
-  if (d < 10) {
-    say.textContent = `We made it! 🎯 Find the ${s.emoji} sticker and scan it!`;
-    steps.textContent = "You're standing right on the spot!";
-  } else if (navWrong >= 2) {
-    say.textContent = "Oops — we're getting colder! Let's turn around. ↩️";
-    steps.textContent = way;
-  } else if (d < STEPS_MAX_M) {
-    say.textContent = `SO close — about ${kidSteps(d)} more steps! 🔥🔥`;
-    steps.textContent = "Start looking around for the sticker! 👀";
-  } else if (d < 80) {
-    say.textContent = "Really warm! It's just around here! 🔥";
-    steps.textContent = way;
-  } else if (d < 200) {
-    say.textContent = "Getting warmer — keep walking! 🚶";
-    steps.textContent = way;
-  } else if (d < 600) {
-    say.textContent = "We're on our way! Follow my arrow. 🧭";
-    steps.textContent = way;
-  } else {
-    say.textContent = "It's a little walk from here — let's go! 🗺️";
-    steps.textContent = way;
+  // the guide speaks: a fresh line each time the situation changes, held steady in between
+  const band = guideBand(d, navWrong);
+  const ctx = { name: state.name || "explorer", guide: guide.name, sticker: s.emoji, n: kidSteps(d) };
+  if (band !== navBand) {
+    navBand = band;
+    navLine = Math.floor(Math.random() * GUIDE_LINES[band].length);
+    popBubble();
+    if (band !== "wrong" && wasBand != null) guideCheer();
   }
+  say.textContent = GUIDE_LINES[band][navLine](ctx);
+
+  const way = headingDeg != null ? "Follow my arrow ⬆️" : `Head ${dirName(navBearing)}`;
+  steps.textContent = band === "arrived" ? "You're standing right on the spot!"
+    : band === "close" ? "Start looking around for the sticker! 👀"
+    : way;
+
+  if (closedIn && band !== "arrived") guideBurst("🔥 warmer!");
+  else if (navWrong === 1) guideBurst("❄️ colder…");
 
   // hotness bar: empty a couple of blocks away, full when you're on top of it
   $("gnFill").style.width = Math.round(Math.max(0, Math.min(1, 1 - d / 250)) * 100) + "%";
@@ -730,7 +802,7 @@ function flashCardNote(t, good) {
   n.classList.toggle("good", !!good);
   n.classList.remove("hidden");
 }
-function closeStop() { stopGuiding(); $("stopModal").classList.add("hidden"); }
+function closeStop() { stopGuiding(); openCodeBox(false); $("stopModal").classList.add("hidden"); }
 
 // ---------- in-app QR camera ("Scan sticker") ----------
 // Scanning inside the app means no backing out to the phone's camera app. Decoding
@@ -773,15 +845,20 @@ async function prepDecoder() {
   await loadJsQR();
 }
 
+// Any camera dead end hands the child straight back to the card with the code box
+// already open, so saying "no" to the camera never ends the hunt.
+function fallBackToCode(why) {
+  closeScanner();
+  flashCardNote(why);
+  openCodeBox(true);
+}
+
 async function openScanner() {
   if (camStream) return;                                  // already running
   armBack();
   $("scanCam").classList.remove("hidden");
-  showCodeEntry(false);
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    // no camera here (or not a secure page) — go straight to typing the code
-    showCodeEntry(true);
-    camSay("This phone won't let the app open the camera 📷<br>Type the code from the sticker instead.", true);
+    fallBackToCode("This phone won't let the app open the camera 📷 — type the code from the sticker instead.");
     return;
   }
   camSay("Asking to use your camera — tap <b>Allow</b> 📷", true);
@@ -793,10 +870,9 @@ async function openScanner() {
     });
   } catch (e) {
     const name = (e && e.name) || "";
-    showCodeEntry(true);
-    camSay(name === "NotAllowedError" || name === "SecurityError"
-      ? "Camera is turned off for this app 🔒<br>Allow it in your browser settings, or type the code below."
-      : "Couldn't start the camera 😕<br>Type the code from the sticker instead.", true);
+    fallBackToCode(name === "NotAllowedError" || name === "SecurityError"
+      ? "No camera, no problem 🔒 — type the code printed on the sticker instead."
+      : "Couldn't start the camera 😕 — type the code printed on the sticker instead.");
     return;
   }
   const v = $("camVideo");
@@ -806,8 +882,7 @@ async function openScanner() {
   await prepDecoder();
   if (!camStream) return;                                  // cancelled while we were loading
   if (!camDetector && !window.jsQR) {
-    showCodeEntry(true);
-    camSay("The scanner didn't load 😕<br>Type the code from the sticker instead.", true);
+    fallBackToCode("The scanner didn't load 😕 — type the code printed on the sticker instead.");
     return;
   }
   camBusy = false; camFrame = 0;
@@ -821,31 +896,30 @@ function closeScanner() {
   const v = $("camVideo");
   if (v) { try { v.pause(); v.srcObject = null; } catch {} }
   if (camStream) { try { camStream.getTracks().forEach((t) => t.stop()); } catch {} camStream = null; }
-  showCodeEntry(false);
   $("scanCam").classList.add("hidden");
 }
 
-// ---------- typing the code instead (for a sticker the camera won't read) ----------
-// (callers that open this because the camera failed say why AFTER calling it, so
-// their message replaces the standard prompt)
-function showCodeEntry(on) {
-  $("scanCam").classList.toggle("typing", on);
-  $("camCodeForm").classList.toggle("hidden", !on);
-  $("camTypeBtn").textContent = on ? "📷 Use the camera instead" : "⌨️ Type the code instead";
-  camSay(on ? "Type the code printed on the sticker ⌨️" : CAM_DEFAULT_HINT, true);
-  const i = $("camCodeInput");
-  if (on) { i.value = ""; setTimeout(() => { try { i.focus(); } catch {} }, 60); }
-  else { try { i.blur(); } catch {} }
+// ---------- typing the code in, from the stop card ----------
+// Deliberately NOT part of the camera screen: a child who won't (or can't) allow the
+// camera needs this waiting for them on the card, not behind the thing they said no to.
+function openCodeBox(on) {
+  $("codeForm").classList.toggle("hidden", !on);
+  $("codeBtn").textContent = on ? "⌨️ Hide the code box" : "⌨️ Enter the code instead";
+  const i = $("codeInput");
+  if (on) {
+    i.value = "";
+    setTimeout(() => { try { i.focus(); i.scrollIntoView({ block: "center" }); } catch {} }, 60);
+  } else { try { i.blur(); } catch {} }
 }
 function submitTypedCode(e) {
   if (e) e.preventDefault();
-  const el = $("camCodeInput");
+  const el = $("codeInput");
   const raw = (el.value || "").trim();
   if (!raw) return;
   // accept it however they type it: "A1F4C9", "a1 f4 c9", or the whole printed link
   const s = stopFromScan(raw) || stopFromScan(raw.toLowerCase().replace(/[^0-9a-z]/g, ""));
   if (!s) {
-    camSay("That code isn't one of ours 🤔<br>Check the sticker and try again.", true);
+    flashCardNote("That code isn't one of ours 🤔 Check the sticker and try again.");
     el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
     try { el.select(); } catch {}
     return;
@@ -1025,8 +1099,8 @@ $("closeStop").onclick = closeStop;
 $("scanStickerBtn").onclick = openScanner;
 $("camClose").onclick = closeScanner;
 $("gnCompass").onclick = askCompass;
-$("camTypeBtn").onclick = () => showCodeEntry($("camCodeForm").classList.contains("hidden"));
-$("camCodeForm").onsubmit = submitTypedCode;
+$("codeBtn").onclick = () => openCodeBox($("codeForm").classList.contains("hidden"));
+$("codeForm").onsubmit = submitTypedCode;
 $("stickerGoneBtn").onclick = reportStickerMissing;
 $("bonusToggle").onclick = () => {
   const hidden = $("bonusBox").classList.toggle("hidden");
