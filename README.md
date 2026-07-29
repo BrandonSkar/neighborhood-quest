@@ -49,6 +49,11 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   deleting or reordering cards never re-points anyone's existing stamps.
 - **Lifetime totals + badges** on the home hub (all-time treasures, season, achievements)
   so returning players are rewarded across seasons.
+- **📲 Add Quest to my home screen** on the home hub, right above Delete my data. One tap
+  installs it where the browser allows (Android/Chrome/Edge); everywhere else it shows the
+  steps for that browser. It hides itself once the quest is running as an installed app —
+  and on phones that can tell us (`getInstalledRelatedApps`), as soon as it's installed
+  at all.
 - **Anonymous scan tracking** (no names, no location) via two serverless functions
   backed by **Upstash Redis**, all keys namespaced under `nq:`.
 

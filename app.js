@@ -123,7 +123,7 @@ function show(id) {
 }
 
 // ---------- Android/browser back button -> main menu (never leaves the app mid-quest) ----------
-const BACK_SUBS = ["stopModal", "passportModal", "guideModal", "finishModal", "scanAnim", "scanCam"];
+const BACK_SUBS = ["stopModal", "passportModal", "guideModal", "finishModal", "scanAnim", "scanCam", "installModal"];
 function anyModalOpen() { return BACK_SUBS.some((id) => !$(id).classList.contains("hidden")); }
 function atMenuScreen() { return !$("home").classList.contains("hidden") && !anyModalOpen(); }
 function goMenu() {
@@ -364,6 +364,7 @@ function goHome() {
   homeSpeak(`I'm ${m.name} ${m.emoji}. Ready for an adventure?`);
   refreshProgress();
   renderLifetime();
+  refreshInstallButton();
   maybePromptInstall();
 }
 function homeSpeak(t) { $("homeSpeech").textContent = t; }
@@ -1094,6 +1095,8 @@ $("btnChangeGuide").onclick = () => {
 $("closeGuide").onclick = () => $("guideModal").classList.add("hidden");
 $("btnHome").onclick = () => { if (backGuard) { try { history.back(); } catch { goMenu(); } } else goMenu(); };
 $("btnDelete").onclick = deleteMyData;
+$("btnInstall").onclick = installNow;
+$("closeInstallHow").onclick = () => $("installModal").classList.add("hidden");
 $("homeGuideBtn").onclick = () => {
   const m = mascotById(state.mascot);
   homeSpeak(m.cheer[Math.floor(Math.random() * m.cheer.length)] + " 🌟");
@@ -1116,10 +1119,59 @@ $("playAgain").onclick = () => {
 
 // ---------- install / Add to Home Screen ----------
 let deferredPrompt = null;
+let knownInstalled = false;
 try {
-  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; maybePromptInstall(); });
-  window.addEventListener("appinstalled", () => { $("installBar").classList.add("hidden"); });
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault(); deferredPrompt = e;
+    maybePromptInstall(); refreshInstallButton();
+  });
+  window.addEventListener("appinstalled", () => {
+    knownInstalled = true;
+    $("installBar").classList.add("hidden");
+    refreshInstallButton();
+  });
 } catch {}
+
+// ---------- the permanent "add me to your home screen" button ----------
+// It disappears the moment the quest is running as an installed app, and on phones
+// that can tell us (Chrome/Android) as soon as the app is on the device at all.
+async function refreshInstallButton() {
+  const b = $("btnInstall"); if (!b) return;
+  let hide = isStandalone() || knownInstalled;
+  if (!hide && navigator.getInstalledRelatedApps) {
+    try {
+      const apps = await navigator.getInstalledRelatedApps();
+      if (apps && apps.length) { knownInstalled = true; hide = true; }
+    } catch { /* not supported here — the button just stays */ }
+  }
+  b.classList.toggle("hidden", hide);
+}
+async function installNow() {
+  if (deferredPrompt) {                          // Android/Chrome: real one-tap install
+    try {
+      deferredPrompt.prompt();
+      const r = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (r && r.outcome === "accepted") knownInstalled = true;
+    } catch {}
+    refreshInstallButton();
+    return;
+  }
+  showInstallHow();                              // everyone else: show them the steps
+}
+function showInstallHow() {
+  armBack();
+  const me = mascotById(state.mascot);
+  const steps = isIOS()
+    ? [`Tap the <b>Share</b> button ⬆️ at the bottom of Safari.`,
+       `Scroll down and tap <b>Add to Home Screen</b>.`,
+       `Tap <b>Add</b> — and ${me.name} ${me.emoji} lands on your home screen!`]
+    : [`Open your browser's menu <b>⋮</b>.`,
+       `Tap <b>Install app</b> (or <b>Add to Home screen</b>).`,
+       `Confirm — and ${me.name} ${me.emoji} lands on your home screen!`];
+  $("installSteps").innerHTML = steps.map((s) => `<li>${s}</li>`).join("");
+  $("installModal").classList.remove("hidden");
+}
 function isStandalone() {
   try { return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; }
   catch { return false; }
@@ -1146,8 +1198,14 @@ function maybePromptInstall() {
   } catch {}
 }
 $("installAdd").onclick = async () => {
-  try { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; } catch {}
+  try {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const r = await deferredPrompt.userChoice;
+    if (r && r.outcome === "accepted") knownInstalled = true;
+  } catch {}
   deferredPrompt = null; $("installBar").classList.add("hidden");
+  refreshInstallButton();
 };
 $("installClose").onclick = () => {
   $("installBar").classList.add("hidden");

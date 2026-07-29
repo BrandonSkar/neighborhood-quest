@@ -58,6 +58,8 @@
       <button id="btnChangeGuide" class="menu-btn guide"><span>🔁</span>Change Guide</button>
     </div>
     <p class="home-hint">Out exploring? Scan a QR sticker at a park or school to stamp your passport! 🎯</p>
+    <!-- hidden once the quest is installed, or when it's already running as an app -->
+    <button id="btnInstall" class="home-install hidden">📲 Add Quest to my home screen</button>
     <button id="btnDelete" class="home-danger">🗑️ Delete my data</button>
   </div>
 </section>
@@ -184,6 +186,17 @@
     <h2 id="scanTitle" class="scan-title">Searching…</h2>
     <p id="scanSub" class="scan-sub">Following <span id="scanGuideName">your guide</span>…</p>
     <button id="scanSkip" class="text-btn light">Tap to skip ⏩</button>
+  </div>
+</div>
+
+<!-- ============ HOW TO INSTALL (browsers with no one-tap prompt) ============ -->
+<div id="installModal" class="overlay hidden">
+  <div class="card">
+    <div class="medal" style="font-size:56px;animation:none;">📲</div>
+    <h2>Add Quest to your home screen</h2>
+    <p class="intro">Then it opens like a real app — full screen, and it works without signal.</p>
+    <ol id="installSteps" class="install-steps"></ol>
+    <button id="closeInstallHow" class="big-btn">Got it!</button>
   </div>
 </div>
 
