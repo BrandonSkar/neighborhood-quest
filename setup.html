@@ -138,7 +138,7 @@
 
   <div class="panel noprint">
     <h2 style="margin-top:2px;">1. Print a sheet of stickers</h2>
-    <p class="note" style="margin-top:0;">Nine blank <b>Neighborhood Quest</b> stickers, three across, each with its own <b>code</b>. No place names — nothing is committed to a spot yet, so you can tape any one of them anywhere. Every code is checked against the database, so no sheet ever repeats one. Cut them out, laminate if you like, and take them for a walk.</p>
+    <p class="note" style="margin-top:0;">Nine blank <b>Neighborhood Quest</b> stickers, three across, each with its own <b>code</b>. No place names — nothing is committed to a spot yet, so you can tape any one of them anywhere. The nine codes are all different from each other and from every card you've already published, so a new sticker can never clash with a live one. Cut them out, laminate if you like, and take them for a walk.</p>
     <div class="toolbar">
       <button id="printBtn" class="big">🖨️ Print a new sheet of 9</button>
       <button id="rePrintBtn" class="ghost" disabled>🖨️ Print this sheet again</button>
@@ -244,7 +244,6 @@
   // ---- editor state ----
   // each card: { emoji, name, lat, lng, park, code, acc }  — one per sticker you've placed
   let cards = [];
-  let printedCodes = new Set();   // every code ever printed, so a typo is spottable
   let configLoaded = false;       // did we actually read the live cards? (see publish)
 
   // The game always lives here, so the QR links build themselves.
@@ -269,12 +268,11 @@
   async function initEditor() {
     let src = [];
     try {
-      const r = await fetch("/api/config?printed=1&code=" + encodeURIComponent(SETUP_CODE), { cache: "no-store" });
+      const r = await fetch("/api/config", { cache: "no-store" });
       if (r.ok) {
         const c = await r.json();
         configLoaded = true;
         if (c && Array.isArray(c.stops)) src = c.stops;
-        if (c && Array.isArray(c.printed)) printedCodes = new Set(c.printed.map(normCode));
       }
     } catch { /* offline or file:// — handled just below */ }
 
@@ -430,11 +428,6 @@
       if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
       return;
     }
-    // A code that was never printed is almost always a typo — and a typo'd card is a
-    // sticker on a pole that stamps nothing, which you'd only discover from a kid.
-    if (printedCodes.size && !printedCodes.has(code) &&
-        !confirm(`"${code}" isn't on any sheet you've printed.\n\nCheck the sticker — 0/o and 1/l are easy to mix up. Add it anyway?`)) return;
-
     cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code, acc: null, q: "", choices: [], correct: 0 });
     renderCards();
     $("newCardCode").value = "";
@@ -540,10 +533,6 @@
       setWipeStatus(`✅ Deleted ${j.deleted} record(s) — back to Season 1${j.keptCards ? ", cards kept" : ", cards cleared"}.`, "ok");
       // this device was holding the old hunt in localStorage too
       try { localStorage.removeItem("nq_config"); } catch {}
-      if (!keepCards) {
-        // cards AND the printed-code memory are gone, so the sheet in your hand is dead
-        printedCodes.clear(); sheet = []; saveSheet(); renderSheet();
-      }
       cards = j.keptCards ? cards : [];
       renderCards();
     } catch {
@@ -625,10 +614,9 @@
         return false;
       }
       sheet = j.codes.map(normCode);
-      sheet.forEach((c) => printedCodes.add(c));
       saveSheet();
       renderSheet();
-      setSheetStatus(`${sheet.length} fresh stickers, no repeats.`, "ok");
+      setSheetStatus(`${sheet.length} fresh stickers — no repeats, and none clashing with a card you've published.`, "ok");
       return true;
     } catch {
       setSheetStatus("Couldn't reach the server — open this page on the live site.", "err");

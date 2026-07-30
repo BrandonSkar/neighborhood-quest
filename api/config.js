@@ -1,9 +1,8 @@
 // Vercel Serverless Function — the hider's published cards (the neighborhood setup).
 //
 //   GET                                   -> { season, stops, updated }  (stops:null before first publish)
-//   GET ?code=8979&printed=1              -> the above + { printed:[codes ever printed] }
 //   POST { code:"8979", stops, newHunt }  -> saves the cards, returns the new season
-//   POST { code:"8979", print:9 }         -> mints 9 unused sticker codes for a print sheet
+//   POST { code:"8979", print:9 }         -> 9 sticker codes for a print sheet
 //
 // Storage is ONE key `nq:config` in Upstash Redis (a JSON blob), under the shared
 // "nq:" namespace so it sits alongside the scan/profile keys without collisions.
@@ -14,9 +13,10 @@
 // the new hunt; send newHunt:false to just fix a pin without resetting anyone.
 //
 // A sticker exists as a CODE before it exists as a card: you print a sheet of blank
-// stickers, then add the card once you've taped one somewhere you like. `nq:printed`
-// remembers every code ever printed so a later sheet can never repeat one — a duplicate
-// would send two different spots to the same stop.
+// stickers, then add the card once you've taped one somewhere you like. What must never
+// clash is the PUBLISHED set — two live cards on one code would send kids to one spot for
+// both. Paper that's still blank doesn't matter, so a fresh sheet only dodges the codes
+// that are actually on cards (and, obviously, itself).
 import { Redis } from "@upstash/redis";
 
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -24,7 +24,6 @@ const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TO
 const redis = url && token ? new Redis({ url, token }) : null;
 
 const CONFIG = "nq:config";
-const PRINTED = "nq:printed";
 // Gate for publishing. Set ADMIN_CODE in Vercel to use a private one instead.
 const SETUP_CODE = process.env.ADMIN_CODE || "8979";
 
@@ -37,17 +36,13 @@ function randCode() {
   return s;
 }
 
-// Hand out `n` codes that no card and no earlier sheet is already using, and remember
-// them. A code is burned the moment it's printed, whether or not that sticker is ever
-// taped to anything — paper is cheap, a clash in the field is not.
+// Hand out `n` codes: none of them used by a published card, and none of them repeated
+// on the sheet itself. Nothing is reserved — an unplaced sticker is just paper, and if a
+// later sheet happens to reprint a code that was never published, no harm is done.
 async function mintCodes(n) {
   const used = new Set();
   const cfg = await redis.get(CONFIG);
   if (cfg && Array.isArray(cfg.stops)) for (const s of cfg.stops) if (s && s.code) used.add(String(s.code).toLowerCase());
-  try {
-    const seen = await redis.smembers(PRINTED);
-    if (Array.isArray(seen)) for (const c of seen) used.add(String(c).toLowerCase());
-  } catch { /* set not created yet */ }
 
   const out = [];
   let guard = 0;
@@ -57,7 +52,6 @@ async function mintCodes(n) {
     used.add(c);
     out.push(c);
   }
-  if (out.length) await redis.sadd(PRINTED, ...out);
   return out;
 }
 
@@ -112,16 +106,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const cfg = await redis.get(CONFIG);
       res.setHeader("Cache-Control", "no-store");
-      const out = cfg || { season: 1, stops: null };
-      // The list of printed codes is for the hider's eyes only (it's how setup spots a
-      // typo), so it rides along only when the setup code is on the URL.
-      if (req.query && req.query.printed && (req.query.code || "") === SETUP_CODE) {
-        let printed = [];
-        try { printed = (await redis.smembers(PRINTED)) || []; } catch {}
-        res.status(200).json({ ...out, printed });
-        return;
-      }
-      res.status(200).json(out);
+      res.status(200).json(cfg || { season: 1, stops: null });
       return;
     }
 

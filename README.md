@@ -68,7 +68,7 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | `index.html` / `app.js` / `styles.css` / `data.js` | The game (`data.js` holds the built-in/offline default stops) |
 | `setup.html` | **Hider-only, code-locked (8979)**: print a 3×3 sheet of blank stickers, then add each one by its code once it's taped up — pin, name, picture, question — and publish |
 | `stats.html` | Live scan dashboard |
-| `api/config.js` | Stores/serves the hider's published cards (`nq:config`), and mints never-repeated sticker codes for the print sheet (`nq:printed`) |
+| `api/config.js` | Stores/serves the hider's published cards (`nq:config`), and mints sticker codes for the print sheet that don't clash with any live card |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
 | `api/stats.js` | Returns aggregate stats for the dashboard (needs the code) |
 | `api/reset.js` | The "Start over" wipe — clears `nq:*` and resets to Season 1 |
@@ -106,10 +106,10 @@ A quest starts with **zero cards**. Nothing is committed to a location until you
 standing in it.
 
 1. **At the desk.** `/setup.html` → **🖨️ Print a new sheet of 9**. That's the whole step:
-   the server hands out nine codes it has never used before, the page lays them out three
-   across, and the print dialog opens. Every sticker is identical — 🗺️ *Neighborhood
-   Quest*, a QR, and a big **code** — so no sticker is promised to any place yet. Cut them
-   out, laminate if you like.
+   the server hands out nine codes — all different from each other and from every card
+   you've already published — the page lays them out three across, and the print dialog
+   opens. Every sticker is identical — 🗺️ *Neighborhood Quest*, a QR, and a big **code** —
+   so no sticker is promised to any place yet. Cut them out, laminate if you like.
 2. **On the walk.** Tape one up wherever you actually like. Open `/setup.html` on your
    phone, type the **code printed on that sticker**, tap **📍 Use my location** while
    you're standing at it, name the spot, pick a picture, write its question — and
@@ -117,15 +117,12 @@ standing in it.
 3. **Anything left over** stays a blank piece of paper. Carry spares; nothing is wasted,
    and an unused code simply never becomes a card.
 
-The code is the sticker's whole identity, so setup checks it: a code that isn't on any
-sheet you've printed asks "are you sure?" before it becomes a card (0/o and 1/l are easy
-to mis-read), and the same sticker can't be added twice. Publishing from a second device
-notices any card the page hasn't seen and offers to keep it, so editing from the phone in
-the park and the PC at home can't quietly delete each other's work.
-
-Printed codes are remembered in `nq:printed`, which is what makes "no sheet ever repeats
-a code" true across devices and years. **🧹 Wipe all data, keep my cards** keeps that
-memory (the stickers in your drawer still work); **💣 Wipe everything** clears it.
+Only **published** codes are protected — blank paper isn't reserved, so two sheets printed
+months apart could in principle carry the same code, and that's fine: it only ever
+matters when a card goes live, and setup won't let you add a code that's already on one.
+Publishing from a second device notices any card the page hasn't seen and offers to keep
+it, so editing from the phone in the park and the PC at home can't quietly delete each
+other's work.
 
 ## Missing-sticker email alerts (optional)
 `api/scan.js` emails the hider when a child reports a sign is gone. It uses
