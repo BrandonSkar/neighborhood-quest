@@ -26,6 +26,11 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   panel goes orange and the buddy starts hopping. **Nothing ever shows metres** — far is
   "a little walk", and a step count only appears once it's small enough to picture ("SO
   close — about 25 more steps!"). Walk the wrong way twice and it says so, with a ❄️ puff.
+  The guide also knows how much to trust the phone: it widens "you're here" to match the
+  reported accuracy (a ±30 m phone can't tell 20 m from 0 m, so at 20 m it says *start
+  hunting* instead of quoting steps), ignores movement smaller than that margin so a child
+  standing still is never told they're going the wrong way by drift alone, and admits it
+  when the fix is hopeless (*my map is a bit blurry here 🌫️*).
   All the motion honours the OS "reduce motion" setting. The arrow follows the compass
   (iPhones ask first, via a 🧭 button); otherwise the dial goes north-up and the text
   names the direction. A stop you've already found shows just its mission and Back to
@@ -119,6 +124,13 @@ standing in it.
    phone, type the **code printed on that sticker**, tap **📍 Use my location** while
    you're standing at it, name the spot, pick a picture, write its question — and
    **Publish**. That sticker is now live on every kid's map. Repeat for the next one.
+
+   *Dropping the pin takes a few seconds on purpose.* One reading is whatever the phone
+   believed at that instant — often ±30 m from a cold start. It keeps watching while you
+   stand there, holds on to the **sharpest** fix (never averaging a worse one in), stops
+   as soon as it's within ±8 m, and tells you what you got: *spot on* / *good* / *rough —
+   tap again in the open, away from walls*. Tap the button again to take the best so far.
+   Every reading is saved as it arrives, so wandering off mid-sample loses nothing.
 3. **Anything left over** stays a blank piece of paper. Carry spares; nothing is wasted,
    and an unused code simply never becomes a card.
 

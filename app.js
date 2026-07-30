@@ -251,6 +251,7 @@ function showMap() {
 // ---------- GPS: the "you are here" dot, and the fix the guide steers by ----------
 let youMarker = null, youAccuracy = null, geoWatchId = null;
 let lastFix = null;                 // [lat, lng] of the child's phone
+let lastAcc = null;                 // ...and how much the phone trusts it, in metres
 
 function haversine(a, b) {          // meters between two [lat, lng] points
   const R = 6371000, toRad = (d) => (d * Math.PI) / 180;
@@ -265,12 +266,13 @@ function startGeo() {
     geoWatchId = navigator.geolocation.watchPosition(
       (p) => onFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
       () => {}, // denied/unavailable -> the map just works without the dot
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     );
   } catch {}
 }
 function onFix(lat, lng, acc) {
   lastFix = [lat, lng];
+  lastAcc = typeof acc === "number" && isFinite(acc) ? acc : null;
   if (lmap) {
     const ll = [lat, lng];
     if (!youMarker) {
@@ -658,6 +660,16 @@ const dirName = (d) => DIRS[Math.round(d / 45) % 8];
 const kidSteps = (m) => Math.max(5, Math.round((m * 2) / 5) * 5);
 const STEPS_MAX_M = 25;   // ~50 steps: past this the guide talks in warm/cold instead
 
+// ---- how much of what the phone says can we believe? ----
+// A phone that reports ±30 m can put a child "18 m away" while they're standing on the
+// sticker, so the guide has to widen its idea of "here" to match, and stop reading
+// meaning into wobbles smaller than the error itself. Under trees, near a fence or
+// between houses, ±25 m is completely normal.
+const FUZZY_M = 40;                                  // past this, stop talking in steps
+const accNow = () => (lastAcc == null ? 15 : lastAcc);
+const arriveRadius = () => Math.max(10, Math.min(30, accNow() * 0.9));
+const moveNoise = () => Math.max(3, accNow() / 3);   // smaller than this isn't a real move
+
 // Everything the guide says, in their own voice. Several lines per band so the same
 // walk never sounds identical twice; one is picked when the band changes, then kept
 // (so a step count can tick down without the sentence flickering).
@@ -699,7 +711,7 @@ const GUIDE_LINES = {
   ],
 };
 function guideBand(d, wrong) {
-  if (d < 10) return "arrived";
+  if (d < arriveRadius()) return "arrived";
   if (wrong >= 2) return "wrong";
   if (d < STEPS_MAX_M) return "close";
   if (d < 80) return "warm";
@@ -763,17 +775,20 @@ function updateStopGuide() {
   navBearing = bearingTo(lastFix, s.ll);
   paintArrow();
 
-  // warmer / colder, from how the distance changed since the last fix
+  // warmer / colder, from how the distance changed since the last fix — but only when
+  // the move is bigger than the phone's own margin of error, or a child standing still
+  // gets told they're going the wrong way by GPS drift alone
+  const noise = moveNoise();
   let closedIn = false;
   if (navLastDist != null) {
-    if (d < navLastDist - 3) { navWrong = 0; closedIn = d < navLastDist - 5; }
-    else if (d > navLastDist + 3) navWrong++;
+    if (d < navLastDist - noise) { navWrong = 0; closedIn = d < navLastDist - noise * 1.7; }
+    else if (d > navLastDist + noise) navWrong++;
   }
   const wasBand = navBand;
   navLastDist = d;
 
-  box.classList.toggle("hot", d < 30);
-  box.classList.toggle("arrived", d < 10);   // swaps the arrow for a 🎯 — no way left to point
+  box.classList.toggle("hot", d < Math.max(30, arriveRadius() + 10));
+  box.classList.toggle("arrived", d < arriveRadius());   // swaps the arrow for a 🎯
 
   // the guide speaks: a fresh line each time the situation changes, held steady in between
   const band = guideBand(d, navWrong);
@@ -787,8 +802,9 @@ function updateStopGuide() {
   say.textContent = GUIDE_LINES[band][navLine](ctx);
 
   const way = headingDeg != null ? "Follow my arrow ⬆️" : `Head ${dirName(navBearing)}`;
-  steps.textContent = band === "arrived" ? "You're standing right on the spot!"
+  steps.textContent = band === "arrived" ? "You're right by it — start hunting! 👀"
     : band === "close" ? "Start looking around for the sticker! 👀"
+    : accNow() > FUZZY_M ? "My map is a bit blurry here 🌫️ — " + way.toLowerCase()
     : way;
 
   if (closedIn && band !== "arrived") guideBurst("🔥 warmer!");

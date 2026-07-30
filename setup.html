@@ -300,6 +300,49 @@
     correct: (s.quiz && Number.isInteger(s.quiz.correct)) ? s.quiz.correct : 0,
   });
 
+  // ---- getting a pin worth walking to ----
+  // One reading is whatever the phone believed at that instant — often ±30 m from a cold
+  // start, which is half a block of a child wandering. Stand still and it usually tightens
+  // to under 10 m within a few seconds, so we keep watching and hold on to the SHARPEST
+  // fix instead of the first one. Tap again to take the best so far.
+  const FIX_GOOD_M = 8;        // about as good as a phone gets; stop there
+  const FIX_MAX_MS = 25000;    // ...but never keep them standing longer than this
+  let sampling = null;         // ends whichever card is currently sampling
+
+  function sampleFix(onFix, onEnd) {
+    if (sampling) sampling("cancelled");
+    let best = null, watch = null, timer = null, over = false;
+    const end = (why) => {
+      if (over) return; over = true;
+      if (watch != null) { try { navigator.geolocation.clearWatch(watch); } catch {} }
+      clearTimeout(timer);
+      if (sampling === end) sampling = null;
+      onEnd(best, why);
+    };
+    sampling = end;
+    timer = setTimeout(() => end("time"), FIX_MAX_MS);
+    try {
+      watch = navigator.geolocation.watchPosition(
+        (p) => {
+          const acc = p.coords.accuracy;
+          if (best && !(acc < best.acc)) return;          // only ever keep the sharpest
+          best = { lat: p.coords.latitude, lng: p.coords.longitude, acc };
+          onFix(best);
+          if (acc <= FIX_GOOD_M) end("good");
+        },
+        (err) => { if (!best) end(err.code === 1 ? "denied" : "failed"); },
+        { enableHighAccuracy: true, timeout: FIX_MAX_MS, maximumAge: 0 }
+      );
+    } catch { end("failed"); }
+    return end;
+  }
+  // How much to trust a pin, in words the person dropping it can act on.
+  const pinWords = (acc) =>
+    acc == null ? "Pin saved ✓"
+    : acc <= 10 ? `Pin dropped ±${Math.round(acc)} m — spot on ✓`
+    : acc <= 25 ? `Pin dropped ±${Math.round(acc)} m — good ✓`
+    : `Pin dropped ±${Math.round(acc)} m — rough. Tap again in the open, away from walls.`;
+
   // ---- render the editable cards ----
   const hasPin = (c) => c.lat !== "" && c.lng !== "" && isFinite(+c.lat) && isFinite(+c.lng);
   // "ready" = the kids can actually play it: it's been given a spot and a name
@@ -312,6 +355,7 @@
     : !hasPin(c) ? "needs a pin — tap 📍" : "needs a name";
 
   function renderCards() {
+    if (sampling) sampling("cancelled");   // the card it was painting into is about to go
     const box = $("cards"); box.innerHTML = "";
     cards.forEach((c, i) => {
       const el = document.createElement("div");
@@ -360,9 +404,8 @@
         state.textContent = stateWord(c);
       };
       const showPin = () => {
-        pin.classList.toggle("ok", hasPin(c));
-        pin.textContent = !hasPin(c) ? "No pin yet"
-          : c.acc != null ? `Pin dropped ±${Math.round(c.acc)} m` : "Pin saved ✓";
+        pin.classList.toggle("ok", hasPin(c) && (c.acc == null || c.acc <= 25));
+        pin.textContent = !hasPin(c) ? "No pin yet" : pinWords(c.acc);
         showState();
       };
       showPin();
@@ -390,23 +433,32 @@
       el.querySelectorAll(".cq-a").forEach((a) => { a.oninput = () => (c.choices[+a.dataset.k] = a.value); });
       el.querySelectorAll(".cq-correct").forEach((r) => { r.onchange = () => (c.correct = +r.value); });
 
+      const restLabel = () => (hasPin(c) ? "📍 Move the pin here" : "📍 Use my location");
+      locBtn.textContent = restLabel();
       locBtn.onclick = () => {
         if (!("geolocation" in navigator)) { pin.textContent = "No GPS on this device."; return; }
-        locBtn.textContent = "📡 Getting location…"; locBtn.disabled = true;
-        navigator.geolocation.getCurrentPosition(
-          (p) => {
-            c.lat = p.coords.latitude.toFixed(6);
-            c.lng = p.coords.longitude.toFixed(6);
-            c.acc = p.coords.accuracy;
-            locBtn.textContent = "📍 Use my location"; locBtn.disabled = false; locBtn.classList.add("ok");
+        if (sampling) { sampling("stopped"); return; }        // tapped again: take the best so far
+        pin.classList.remove("ok");
+        pin.textContent = "Stand still by the sticker… 📡";
+        locBtn.textContent = "✋ Use this one";
+        sampleFix(
+          (b) => {
+            // save as we go, so wandering off mid-sample still leaves the best fix behind
+            c.lat = b.lat.toFixed(6); c.lng = b.lng.toFixed(6); c.acc = b.acc;
+            pin.textContent = `Sharpening… ±${Math.round(b.acc)} m`;
+            showState();
+          },
+          (best, why) => {
+            locBtn.textContent = restLabel();
+            if (!best) {
+              pin.classList.remove("ok");
+              pin.textContent = why === "denied" ? "Location blocked — allow it in your browser."
+                : "Couldn't get a fix — step into the open and try again.";
+              return;
+            }
+            locBtn.classList.toggle("ok", best.acc <= 25);
             showPin();
-          },
-          (err) => {
-            pin.classList.remove("ok");
-            pin.textContent = err.code === 1 ? "Location blocked — allow it in your browser." : "Couldn't get a fix, try again.";
-            locBtn.textContent = "📍 Use my location"; locBtn.disabled = false;
-          },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          }
         );
       };
 
