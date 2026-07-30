@@ -266,6 +266,13 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .slot .q{opacity:.35;font-size:26px;}
 .slot small{font-size:9px;font-weight:800;color:#5a4a34;line-height:1.05;text-align:center;width:100%;}
 
+/* ---------- Change guide: your name lives here too ---------- */
+.name-edit{display:block;font-weight:800;font-size:15px;color:#8a7a62;margin:2px 0 8px;}
+.name-edit-input{font-family:inherit;font-size:19px;font-weight:800;text-align:center;padding:12px 16px;
+  border-radius:16px;border:4px solid #fff;background:#fff;color:var(--ink);width:100%;
+  box-shadow:0 3px 0 rgba(0,0,0,.08);margin-bottom:16px;}
+.name-edit-input:focus{outline:none;border-color:var(--sun);}
+
 /* ---------- Finish ---------- */
 .finish-card{background:linear-gradient(160deg,#fff8ec,#ffe9c9);}
 .medal{font-size:80px;animation:spin 3s linear infinite;}
@@ -289,6 +296,15 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .home-speech{position:absolute;top:-6px;right:-120px;max-width:160px;background:#fff;border:3px solid #ffe6b0;
   border-radius:14px;padding:8px 12px;font-weight:700;font-size:13px;box-shadow:var(--shadow);}
 @media(max-width:560px){.home-speech{position:static;margin:8px auto 0;right:auto;max-width:280px;}}
+/* tapping your buddy: he hops and the bubble pops, so the tap clearly did something */
+.home-guide-emoji.chat{animation:chatHop .55s cubic-bezier(.2,1.4,.4,1) 2;}
+@keyframes chatHop{0%,100%{transform:translateY(0) rotate(-2deg)}
+  40%{transform:translateY(-14px) rotate(6deg) scale(1.08)}}
+.home-speech.pop{animation:speechPop .34s cubic-bezier(.2,1.5,.4,1);}
+@keyframes speechPop{0%{transform:scale(.85)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){
+  .home-guide-emoji,.home-guide-emoji.chat,.home-speech.pop{animation:none;}
+}
 .home-hi{font-size:25px;margin:6px 0 2px;color:#ff6f61;text-shadow:0 3px 0 #fff;}
 .home-progress{margin:0 auto 12px;max-width:320px;}
 .hp-bar{height:15px;background:#fff;border-radius:999px;overflow:hidden;box-shadow:inset 0 2px 4px rgba(0,0,0,.12);border:2px solid #fff;}

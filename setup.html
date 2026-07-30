@@ -78,24 +78,43 @@
   .status{font-weight:700;margin-left:6px;}
   .status.ok{color:#118a52;} .status.err{color:#d0344a;}
 
-  /* ---- print sheet ---- */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:8px;}
+  /* ---- add a placed sticker by its code ---- */
+  .add-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .add-code{flex:0 0 190px;font-family:"Consolas",ui-monospace,monospace;font-size:20px;font-weight:800;
+    letter-spacing:3px;text-align:center;text-transform:lowercase;}
+  .warn{background:#fff6e6;border:1px solid #ffdca8;color:#8a5d00;border-radius:10px;padding:10px 12px;
+    font-size:14px;font-weight:700;margin:0 0 12px;}
+
+  /* ---- print sheet: nine blank stickers, three across ---- */
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px;}
+  @media(max-width:620px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
   .qr{background:#fff;border:2px dashed #b9c4dc;border-radius:16px;padding:14px;text-align:center;break-inside:avoid;}
-  .qr .em{font-size:34px;}
-  .qr h3{margin:4px 0;font-size:17px;}
+  .qr .em{font-size:30px;}
+  .qr h3{margin:4px 0;font-size:16px;}
   .qr .qsub{margin:0 0 6px;font-size:13px;font-weight:700;color:#7a89a6;}
-  .qr img{width:100%;max-width:200px;height:auto;image-rendering:pixelated;}
-  .qr .url{font-size:11px;color:#8a97b2;word-break:break-all;margin-top:6px;}
+  .qr img{width:100%;max-width:190px;height:auto;image-rendering:pixelated;}
+  .qr .url{font-size:10px;color:#8a97b2;word-break:break-all;margin-top:6px;}
   .qr .cut{font-size:12px;color:#b9c4dc;margin-top:6px;}
   /* the typed-in fallback: big enough for a kid to read off the sign */
   .qr .codebox{margin-top:8px;border:2px solid #e2e8f4;border-radius:12px;padding:6px 8px;background:#f8fbff;}
   .qr .codebox small{display:block;font-size:11px;color:#7a89a6;font-weight:700;line-height:1.25;}
-  .qr .codebox b{display:block;font-family:"Consolas",ui-monospace,monospace;font-size:30px;letter-spacing:4px;
+  .qr .codebox b{display:block;font-family:"Consolas",ui-monospace,monospace;font-size:28px;letter-spacing:4px;
     color:#2a3346;margin-top:2px;}
+  /* Printing gives you the stickers and nothing else — one page, three by three. */
   @media print{
     body{background:#fff;padding:0;}
-    .noprint{display:none !important;}
-    .qr{border-color:#ccc;}
+    .noprint,#lock,h1,p.lede,.panel{display:none !important;}
+    .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0;}
+    .qr{border-color:#bbb;padding:8px;border-radius:12px;}
+    .qr .em{font-size:22px;}
+    .qr h3{font-size:13px;margin:2px 0;}
+    .qr .qsub{font-size:10px;margin:0 0 4px;}
+    .qr img{max-width:120px;}
+    .qr .codebox{margin-top:5px;padding:4px 6px;}
+    .qr .codebox small{font-size:9px;}
+    .qr .codebox b{font-size:22px;letter-spacing:3px;}
+    .qr .cut{margin-top:3px;}
+    .qr .url{font-size:8px;margin-top:3px;}
   }
 </style>
 </head>
@@ -115,19 +134,37 @@
 <!-- ============ EDITOR (unlocked) ============ -->
 <div id="editor" class="wrap hidden">
   <h1>🗺️ Neighborhood Quest — Setup</h1>
-  <p class="lede">Add a card for each printout, drop its <b>exact pin</b>, then publish. The warmer&nbsp;🔥&nbsp;/&nbsp;colder&nbsp;❄️ hunt points at wherever you drop it, on every kid's phone. &nbsp;<a href="stats.html">📊 Dashboard →</a></p>
+  <p class="lede"><b>1.</b> Print a sheet of blank stickers. &nbsp;<b>2.</b> Tape one somewhere good. &nbsp;<b>3.</b> Type its code in here, drop the pin and publish. &nbsp;<a href="stats.html">📊 Dashboard →</a></p>
+
+  <div class="panel noprint">
+    <h2 style="margin-top:2px;">1. Print a sheet of stickers</h2>
+    <p class="note" style="margin-top:0;">Nine blank <b>Neighborhood Quest</b> stickers, three across, each with its own <b>code</b>. No place names — nothing is committed to a spot yet, so you can tape any one of them anywhere. Every code is checked against the database, so no sheet ever repeats one. Cut them out, laminate if you like, and take them for a walk.</p>
+    <div class="toolbar">
+      <button id="printBtn" class="big">🖨️ Print a new sheet of 9</button>
+      <button id="rePrintBtn" class="ghost" disabled>🖨️ Print this sheet again</button>
+      <span id="sheetStatus" class="status"></span>
+    </div>
+    <p class="note">The sheet itself waits at the bottom of this page — printing sends the stickers and nothing else.</p>
+  </div>
 
   <div class="panel">
-    <h2 style="margin-top:2px;">Cards</h2>
-    <p class="note" style="margin-top:0;"><b>Print first, decide later.</b> Add a card per sticker you want to carry and publish — every sticker prints the same, so nothing is committed to a place yet. Out walking: tape one up, find its card by the <b>code</b> printed on it, then tap <b>📍 Use my location</b>, name the spot and pick a picture. Publish again when you're home. Outdoorsy pictures get grass and trees drawn around them on the map.</p>
+    <h2 style="margin-top:2px;">2. Stickers you've placed</h2>
+    <p class="note" style="margin-top:0;">Standing at a sticker you just taped up? Type the <b>code</b> printed on it, then tap <b>📍 Use my location</b>, name the spot, pick a picture and add a question. One sticker at a time — publish whenever you like.</p>
+    <p id="loadWarn" class="warn hidden"></p>
     <div id="cards"></div>
-    <div class="toolbar">
-      <button id="addBtn" class="ghost">➕ Add a card</button>
+    <div class="toolbar add-row">
+      <input id="newCardCode" class="add-code" maxlength="12" placeholder="code" aria-label="Code printed on the sticker"
+             autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <button id="addBtn">➕ Add this sticker</button>
+      <span id="addStatus" class="status"></span>
+    </div>
+    <div class="toolbar" style="margin-top:10px;">
       <button id="clearBtn" class="danger">🧹 Clear all &amp; start fresh</button>
     </div>
   </div>
 
   <div class="panel">
+    <h2 style="margin-top:2px;">3. Publish</h2>
     <label class="check"><input type="checkbox" id="newHunt" /> Start a fresh hunt (resets every kid's stamps for the new set)</label>
     <p class="note">Off by default, so publishing only updates the cards and nobody loses progress. Tick it when you've moved to a whole new set of spots.</p>
     <div class="toolbar" style="margin-top:12px;">
@@ -156,18 +193,12 @@
     </div>
   </div>
 
-  <div class="panel noprint">
-    <h2 style="margin-top:2px;">Print the QR codes</h2>
-    <p class="note" style="margin-top:0;">Every sticker is the same generic <b>Neighborhood Quest</b> card — no place name on it, so you can tape any one anywhere. Cut them out, laminate if you like, and carry them on your walk. The big <b>code</b> is what a kid types when their camera won't cooperate, and what tells you which card above belongs to the sticker in your hand.</p>
-    <div class="toolbar">
-      <button id="refreshQR" class="ghost">🔄 Refresh sheet</button>
-      <button onclick="window.print()">🖨️ Print sheet</button>
-    </div>
-  </div>
+  <!-- the sheet lives last: on a phone in the park you want the card editor first, and
+       printing hides everything above this anyway -->
+  <h2 id="sheetHead" class="noprint hidden" style="margin-top:22px;">Your sticker sheet</h2>
   <div id="grid" class="grid"></div>
 </div>
 
-<script src="data.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
   const DEFAULT_CODE = "8979";          // used offline; the live site checks ADMIN_CODE
@@ -211,12 +242,14 @@
   })();
 
   // ---- editor state ----
-  // each card: { emoji, name, lat, lng, park, code, acc }
+  // each card: { emoji, name, lat, lng, park, code, acc }  — one per sticker you've placed
   let cards = [];
-  const newCode = () => Math.random().toString(16).slice(2, 8);
+  let printedCodes = new Set();   // every code ever printed, so a typo is spottable
+  let configLoaded = false;       // did we actually read the live cards? (see publish)
 
   // The game always lives here, so the QR links build themselves.
   const BASE = "https://neighborhood-quest.vercel.app/";
+  const normCode = (v) => (v || "").toString().toLowerCase().replace(/[^0-9a-z]/g, "");
 
   // ---- pictures to choose from ----
   // `park: true` pictures also get grass + cartoon trees drawn around the pin on the
@@ -230,45 +263,66 @@
   ];
   const PARK_PICS = new Set([...PICS[0].list, ...PICS[1].list]);   // outdoorsy = greenery
 
+  // Start from whatever is live in the database — never from the built-in demo stops.
+  // A brand-new quest legitimately has ZERO cards: you print stickers first and add a
+  // card only once one is actually taped to something.
   async function initEditor() {
-    // load whatever is currently published (falls back to the built-in STOPS)
-    let src = null;
+    let src = [];
     try {
-      const r = await fetch("/api/config", { cache: "no-store" });
-      if (r.ok) { const c = await r.json(); if (c && Array.isArray(c.stops) && c.stops.length) src = c.stops; }
-    } catch { /* offline or file:// — fall back below */ }
-    if (!src) src = STOPS.map((s) => ({ name: s.name, emoji: s.emoji, code: s.code, ll: s.ll, park: s.park }));
+      const r = await fetch("/api/config?printed=1&code=" + encodeURIComponent(SETUP_CODE), { cache: "no-store" });
+      if (r.ok) {
+        const c = await r.json();
+        configLoaded = true;
+        if (c && Array.isArray(c.stops)) src = c.stops;
+        if (c && Array.isArray(c.printed)) printedCodes = new Set(c.printed.map(normCode));
+      }
+    } catch { /* offline or file:// — handled just below */ }
 
-    cards = src.map((s) => ({
-      emoji: s.emoji || "📍",
-      name: s.name || "",
-      lat: s.ll ? s.ll[0] : "",
-      lng: s.ll ? s.ll[1] : "",
-      park: !!s.park,
-      code: s.code || newCode(),
-      acc: null,
-      q: (s.quiz && s.quiz.q) || "",
-      choices: (s.quiz && Array.isArray(s.quiz.choices) ? s.quiz.choices.slice(0, 3) : []),
-      correct: (s.quiz && Number.isInteger(s.quiz.correct)) ? s.quiz.correct : 0,
-    }));
+    cards = src.map(fromStop);
+    if (!configLoaded) {
+      $("loadWarn").textContent = "⚠️ Couldn't read your cards from the database, so this page can't publish " +
+        "(it would wipe whatever is really out there). Get a signal and reload.";
+      $("loadWarn").classList.remove("hidden");
+      $("publishBtn").disabled = true;
+    }
+    loadSheet();
     renderCards();
-    renderQR();
+    renderSheet();
   }
+  const fromStop = (s) => ({
+    emoji: s.emoji || "📍",
+    name: s.name || "",
+    lat: s.ll ? s.ll[0] : "",
+    lng: s.ll ? s.ll[1] : "",
+    park: !!s.park,
+    code: normCode(s.code),
+    acc: null,
+    q: (s.quiz && s.quiz.q) || "",
+    choices: (s.quiz && Array.isArray(s.quiz.choices) ? s.quiz.choices.slice(0, 3) : []),
+    correct: (s.quiz && Number.isInteger(s.quiz.correct)) ? s.quiz.correct : 0,
+  });
 
   // ---- render the editable cards ----
   const hasPin = (c) => c.lat !== "" && c.lng !== "" && isFinite(+c.lat) && isFinite(+c.lng);
   // "ready" = the kids can actually play it: it's been given a spot and a name
   const ready = (c) => !!(hasPin(c) && (c.name || "").trim());
+  // ...and if it isn't ready, say which of the two is missing. A card that's short a name
+  // is invisible to kids, which is not something you want to discover from a sticker
+  // nobody could stamp.
+  const stateWord = (c) => ready(c) ? "✓ placed"
+    : !hasPin(c) && !(c.name || "").trim() ? "needs a pin and a name"
+    : !hasPin(c) ? "needs a pin — tap 📍" : "needs a name";
 
   function renderCards() {
     const box = $("cards"); box.innerHTML = "";
     cards.forEach((c, i) => {
       const el = document.createElement("div");
       el.className = "card-edit";
+      el.dataset.code = c.code;
       el.innerHTML = `
         <div class="ce-head">
           <span class="ce-code" title="Printed on this card's sticker">${escapeHtml(c.code)}</span>
-          <span class="ce-state${ready(c) ? " ok" : ""}">${ready(c) ? "✓ placed" : "waiting for a spot"}</span>
+          <span class="ce-state${ready(c) ? " ok" : ""}">${escapeHtml(stateWord(c))}</span>
         </div>
         <div class="ce-top">
           <button class="ce-emoji" title="Tap to choose a picture">${escapeHtml(c.emoji)}</button>
@@ -305,7 +359,7 @@
       const state = el.querySelector(".ce-state");
       const showState = () => {
         state.classList.toggle("ok", ready(c));
-        state.textContent = ready(c) ? "✓ placed" : "waiting for a spot";
+        state.textContent = stateWord(c);
       };
       const showPin = () => {
         pin.classList.toggle("ok", hasPin(c));
@@ -324,11 +378,14 @@
           emojiBtn.textContent = c.emoji;
           picker.querySelectorAll("button").forEach((o) => o.classList.toggle("sel", o === b));
           picker.classList.add("hidden");
-          renderQR();
         };
       });
       name.oninput = () => { c.name = name.value; showState(); };
-      delBtn.onclick = () => { cards.splice(i, 1); renderCards(); renderQR(); };
+      delBtn.onclick = () => {
+        // deleting a placed card takes a real spot off every kid's map — ask first
+        if (ready(c) && !confirm(`Delete "${c.name}" (code ${c.code})?\n\nThe sticker itself keeps working only if you add it back with the same code.`)) return;
+        cards.splice(i, 1); renderCards();
+      };
 
       const qBox = el.querySelector(".cq-q");
       qBox.oninput = () => (c.q = qBox.value);
@@ -357,16 +414,42 @@
 
       box.appendChild(el);
     });
-    if (!cards.length) box.innerHTML = `<p class="note">No cards yet. Tap <b>➕ Add a card</b> to begin.</p>`;
+    if (!cards.length) box.innerHTML = `<p class="note">No stickers placed yet. Print a sheet above, tape one somewhere good, then type its code in below.</p>`;
   }
 
-  $("addBtn").onclick = () => {
-    cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code: newCode(), acc: null, q: "", choices: [], correct: 0 });
+  // ---- add the sticker you just taped up, by the code printed on it ----
+  function addByCode() {
+    const code = normCode($("newCardCode").value);
+    if (!/^[0-9a-f]{4,12}$/.test(code)) {
+      setAddStatus("A sticker code is 6 letters and numbers, like a1f4c9.", "err"); return;
+    }
+    const have = cards.find((c) => c.code === code);
+    if (have) {
+      setAddStatus("That sticker is already in the list below.", "err");
+      const el = $("cards").querySelector(`[data-code="${code}"]`);
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      return;
+    }
+    // A code that was never printed is almost always a typo — and a typo'd card is a
+    // sticker on a pole that stamps nothing, which you'd only discover from a kid.
+    if (printedCodes.size && !printedCodes.has(code) &&
+        !confirm(`"${code}" isn't on any sheet you've printed.\n\nCheck the sticker — 0/o and 1/l are easy to mix up. Add it anyway?`)) return;
+
+    cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code, acc: null, q: "", choices: [], correct: 0 });
     renderCards();
-    renderQR();     // a new card IS a new sticker — it has to appear on the sheet at once
-  };
+    $("newCardCode").value = "";
+    setAddStatus("Added! Drop the pin while you're standing at it. 📍", "ok");
+    const el = $("cards").querySelector(`[data-code="${code}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const n = el.querySelector(".ce-name"); if (n) setTimeout(() => n.focus(), 350);
+    }
+  }
+  function setAddStatus(t, cls) { const s = $("addStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+  $("addBtn").onclick = addByCode;
+  $("newCardCode").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addByCode(); } });
   $("clearBtn").onclick = () => {
-    if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); renderQR(); }
+    if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); }
   };
 
   // ---- publish ----
@@ -374,7 +457,7 @@
     return cards.map((c) => ({
       name: (c.name || "").trim(),
       emoji: (c.emoji || "📍").trim() || "📍",
-      code: c.code || newCode(),
+      code: c.code,
       ll: hasPin(c) ? [+c.lat, +c.lng] : null,
       park: !!c.park,
       quiz: toQuiz(c),
@@ -391,28 +474,46 @@
     return { q, choices: kept, correct: Math.max(0, kept.indexOf(right)) };
   }
 
-  // Blank cards are published too, not dropped. That's the whole point: the codes have
-  // to live in the database from the moment you print them, or the batch you printed on
-  // the PC wouldn't exist when you open setup on your phone in the park. The game hides
-  // any card that hasn't been given a spot yet.
+  // Publishing sends the WHOLE set, so a page opened before you added a card on another
+  // phone would quietly delete it. Check what's live first and offer to keep anything
+  // this page has never seen — you're often editing from two devices in one afternoon.
+  async function keepStrays(stops) {
+    let live = null;
+    try {
+      const r = await fetch("/api/config", { cache: "no-store" });
+      if (r.ok) { const c = await r.json(); if (c && Array.isArray(c.stops)) live = c.stops; }
+    } catch { return stops; }
+    if (!live) return stops;
+    const mine = new Set(stops.map((s) => s.code));
+    const strays = live.filter((s) => s && s.code && !mine.has(normCode(s.code)));
+    if (!strays.length) return stops;
+    const named = strays.map((s) => (s.name || "").trim() || s.code).join(", ");
+    return confirm(`The database has ${strays.length} card(s) this page doesn't know about:\n\n${named}\n\n` +
+      `OK = keep them.  Cancel = publish only the ${stops.length} card(s) on this screen (the others are deleted).`)
+      ? stops.concat(strays.map((s) => ({ ...s, code: normCode(s.code) })))
+      : stops;
+  }
+
   $("publishBtn").onclick = async () => {
-    const stops = toStops();
+    let stops = toStops();
     if (!stops.length) { setStatus("Add at least one card first.", "err"); return; }
-    const live = stops.filter((s) => s.name && s.ll).length;
-    const waiting = stops.length - live;
 
     const btn = $("publishBtn"); btn.disabled = true; setStatus("Publishing…", "");
+    stops = await keepStrays(stops);
+    const live = stops.filter((s) => s.name && s.ll).length;
+    const waiting = stops.length - live;
     try {
       const r = await fetch("/api/config", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: SETUP_CODE, stops, newHunt: $("newHunt").checked }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.ok) { setStatus(j.error || "Publish failed. Is the site online with its database connected?", "err"); btn.disabled = false; return; }
+      if (!r.ok || !j.ok) { setStatus(j.error || j.note || "Publish failed. Is the site online with its database connected?", "err"); btn.disabled = false; return; }
       // keep this device's game in sync immediately
       try { localStorage.setItem("nq_config", JSON.stringify({ season: j.season, stops })); } catch {}
+      cards = stops.map(fromStop); renderCards();   // anything merged in above is ours now
       setStatus(`✅ Published ${j.count} card(s) — ${live} live for kids` +
-        (waiting ? `, ${waiting} waiting for a spot` : "") +
+        (waiting ? `, ${waiting} still needing a name or a pin` : "") +
         (j.newHunt ? ` — new hunt, Season ${j.season}` : "") + ".", "ok");
     } catch (e) {
       setStatus("Publish failed (no connection). Try again when online.", "err");
@@ -439,8 +540,12 @@
       setWipeStatus(`✅ Deleted ${j.deleted} record(s) — back to Season 1${j.keptCards ? ", cards kept" : ", cards cleared"}.`, "ok");
       // this device was holding the old hunt in localStorage too
       try { localStorage.removeItem("nq_config"); } catch {}
+      if (!keepCards) {
+        // cards AND the printed-code memory are gone, so the sheet in your hand is dead
+        printedCodes.clear(); sheet = []; saveSheet(); renderSheet();
+      }
       cards = j.keptCards ? cards : [];
-      renderCards(); renderQR();
+      renderCards();
     } catch {
       setWipeStatus("Couldn't reach the server — open this page on the live site.", "err");
     }
@@ -471,35 +576,88 @@
   };
   function setMailStatus(t, cls) { const s = $("mailStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
 
-  // ---- QR print sheet ----
+  // ---- the print sheet ----
+  // Nine identical blank stickers, told apart only by their code. You print BEFORE
+  // deciding anything, so the paper can never claim a place you haven't stood in yet.
+  // The codes are minted by the server, which knows every code already on a card or on
+  // an earlier sheet — two stickers with one code would point kids at the same spot.
+  const SHEET_KEY = "nq_sheet";
+  let sheet = [];
+
   const qrImg = (url) => "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" + encodeURIComponent(url);
-  function qrCard(emoji, title, sub, url, code) {
+  function qrCard(code) {
+    const url = BASE + "?c=" + code;
     const el = document.createElement("div");
     el.className = "qr";
     el.innerHTML =
-      `<div class="em">${escapeHtml(emoji)}</div>` +
-      `<h3>${escapeHtml(title)}</h3>` +
-      (sub ? `<p class="qsub">${escapeHtml(sub)}</p>` : "") +
-      `<img src="${qrImg(url)}" alt="QR for ${escapeAttr(title)}" />` +
+      `<div class="em">🗺️</div>` +
+      `<h3>Neighborhood Quest</h3>` +
+      `<p class="qsub">Scan me! 🎯</p>` +
+      `<img src="${qrImg(url)}" alt="QR code ${escapeAttr(code)}" />` +
       // the code is the sticker's real identity: it's how a kid stamps without a camera,
-      // and how YOU find this sticker's card in the list once it's taped up
-      (code ? `<div class="codebox"><small>Can't scan? Open the app and type</small><b>${escapeHtml(code)}</b></div>` : "") +
+      // and how YOU tell setup which sticker you just taped up
+      `<div class="codebox"><small>Can't scan? Open the app and type</small><b>${escapeHtml(code)}</b></div>` +
       `<div class="cut">✂️ - - - - - - - - - -</div>` +
       `<div class="url">${escapeHtml(url)}</div>`;
     return el;
   }
-  // Every sticker looks the same on purpose. You print a batch before deciding anything,
-  // tape one wherever you like the look of, and name that spot afterwards — so the paper
-  // can't claim a place you haven't stood in yet.
-  function renderQR() {
+  function renderSheet() {
     const grid = $("grid"); grid.innerHTML = "";
-    // intro/poster QR (opens the app with no stop)
-    grid.appendChild(qrCard("🏠", "Quest — Start Here", "", BASE, ""));
-    cards.forEach((c) => {
-      grid.appendChild(qrCard("🗺️", "Neighborhood Quest", "Scan me! 🎯", BASE + "?c=" + c.code, c.code));
-    });
+    sheet.forEach((code) => grid.appendChild(qrCard(code)));
+    $("rePrintBtn").disabled = !sheet.length;
+    $("sheetHead").classList.toggle("hidden", !sheet.length);
   }
-  $("refreshQR").onclick = renderQR;
+  function loadSheet() {
+    try { const s = JSON.parse(localStorage.getItem(SHEET_KEY)); if (Array.isArray(s)) sheet = s.map(normCode).filter(Boolean); } catch {}
+  }
+  function saveSheet() { try { localStorage.setItem(SHEET_KEY, JSON.stringify(sheet)); } catch {} }
+
+  async function newSheet(n) {
+    setSheetStatus("Getting fresh codes…", "");
+    try {
+      const r = await fetch("/api/config", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, print: n }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok || !Array.isArray(j.codes) || !j.codes.length) {
+        setSheetStatus(j.error || j.note || "Couldn't get new codes — are you online?", "err");
+        return false;
+      }
+      sheet = j.codes.map(normCode);
+      sheet.forEach((c) => printedCodes.add(c));
+      saveSheet();
+      renderSheet();
+      setSheetStatus(`${sheet.length} fresh stickers, no repeats.`, "ok");
+      return true;
+    } catch {
+      setSheetStatus("Couldn't reach the server — open this page on the live site.", "err");
+      return false;
+    }
+  }
+  // Don't hand the printer a page of empty boxes: the QR images come off the network.
+  function sheetReady() {
+    const imgs = [...$("grid").querySelectorAll("img")].filter((im) => !im.complete);
+    if (!imgs.length) return Promise.resolve();
+    return Promise.race([
+      Promise.all(imgs.map((im) => new Promise((done) => { im.onload = im.onerror = done; }))),
+      new Promise((done) => setTimeout(done, 8000)),
+    ]);
+  }
+  async function printSheet() {
+    setSheetStatus("Getting the stickers ready…", "");
+    await sheetReady();
+    setSheetStatus(sheet.length + " stickers ready — off to the printer. 🖨️", "ok");
+    window.print();
+  }
+
+  $("printBtn").onclick = async () => {
+    const btn = $("printBtn"); btn.disabled = true;
+    if (await newSheet(9)) await printSheet();
+    btn.disabled = false;
+  };
+  $("rePrintBtn").onclick = printSheet;
+  function setSheetStatus(t, cls) { const s = $("sheetStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
 
   // ---- tiny escapers ----
   function escapeHtml(s){return (s+"").replace(/[&<>]/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));}

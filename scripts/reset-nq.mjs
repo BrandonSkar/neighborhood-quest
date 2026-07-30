@@ -29,7 +29,9 @@ try {
   do {
     const [next, batch] = await redis.scan(cursor, { match: "nq:*", count: 200 });
     cursor = next;
-    const doomed = keepConfig ? batch.filter((k) => k !== "nq:config") : batch;
+    // nq:printed rides with the config: it's the memory of every sticker code ever put
+    // on paper, and losing it lets a future sheet reprint a code you're still carrying.
+    const doomed = keepConfig ? batch.filter((k) => k !== "nq:config" && k !== "nq:printed") : batch;
     kept += batch.length - doomed.length;
     if (doomed.length) {
       await redis.del(...doomed);

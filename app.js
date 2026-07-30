@@ -357,10 +357,13 @@ function applyGuide() {
   $("cardGuide").textContent = m.emoji;
   $("scanGuideName").textContent = m.name;
 }
+function refreshGreeting() {
+  $("homeGreeting").textContent = state.name ? `Hi, ${state.name}!` : "Hi, Explorer!";
+}
 function goHome() {
   show("home");
   const m = mascotById(state.mascot);
-  $("homeGreeting").textContent = state.name ? `Hi, ${state.name}!` : "Hi, Explorer!";
+  refreshGreeting();
   homeSpeak(huntEmpty()
     ? `I'm ${m.name} ${m.emoji}. The treasures are still being hidden! 🗺️`
     : `I'm ${m.name} ${m.emoji}. Ready for an adventure?`);
@@ -374,6 +377,57 @@ function goHome() {
 }
 function homeSpeak(t) { $("homeSpeech").textContent = t; }
 function say(t) { $("speech").textContent = t; }
+
+// ---------- tap your buddy on the home hub ----------
+// Kids tap this over and over, so it has to keep giving: the guide's own lines mixed
+// with ones that know their name and how the hunt is going — and NEVER the same line
+// twice in a row, which is what makes it feel like someone is actually there.
+const CHAT_ANY = [
+  (c) => `I'm ${c.guide} ${c.em} and you're ${c.name} — what a team! 🤝`,
+  (c) => `Ready when you are, ${c.name}! 🚀`,
+  (c) => `Tap a spot on the map and I'll walk you there. 🧭`,
+  (c) => `Adventure buddies forever! 💛`,
+  (c) => `Wiggle your toes — we've got walking to do! 👣`,
+  (c) => `Stuck? Look up high AND down low. Stickers hide! 👀`,
+  (c) => `Every sticker is out there for real. Somebody put it there! 🗺️`,
+  (c) => `Bring a grown-up, ${c.name} — they carry the snacks. 🍎`,
+];
+const CHAT_HUNTING = [
+  (c) => `${c.left} treasure${c.left > 1 ? "s" : ""} still hiding out there, ${c.name}! 🗺️`,
+  (c) => c.found ? `${c.found} stamped already! Let's get another. 🏅` : `Zero stamps so far — the first one is the best one! ⭐`,
+  (c) => `Shall we go find number ${c.found + 1}? 🎯`,
+  (c) => `I've got a good feeling about today, ${c.name}. 🍀`,
+];
+const CHAT_DONE = [
+  (c) => `You found EVERY treasure, ${c.name}! I'm so proud. 🏆`,
+  (c) => `All done! Want to show someone your passport? 📖`,
+  (c) => `Champion explorer, that's you. 🥇`,
+];
+const CHAT_WAITING = [
+  () => `No stickers are out yet — they're still being hidden! 🤫`,
+  (c) => `Soon, ${c.name}! Check back and we'll go exploring. 🗺️`,
+  () => `I'm keeping my eyes peeled for the first one. 👀`,
+];
+let lastChat = "";
+function guideChat() {
+  const m = mascotById(state.mascot);
+  const found = foundCount();
+  const ctx = { name: state.name || "explorer", guide: m.name, em: m.emoji,
+    found, left: Math.max(0, STOPS.length - found) };
+  const pool = m.cheer.slice()
+    .concat(CHAT_ANY.map((f) => f(ctx)))
+    .concat((huntEmpty() ? CHAT_WAITING : ctx.left > 0 ? CHAT_HUNTING : CHAT_DONE).map((f) => f(ctx)));
+
+  let line = pool[Math.floor(Math.random() * pool.length)];
+  for (let tries = 0; line === lastChat && tries < 8; tries++) line = pool[Math.floor(Math.random() * pool.length)];
+  lastChat = line;
+  homeSpeak(line);
+
+  // he hops, the bubble pops — the tap has to feel like it did something
+  const face = $("homeGuide"), bubble = $("homeSpeech");
+  face.classList.remove("chat"); void face.offsetWidth; face.classList.add("chat");
+  bubble.classList.remove("pop"); void bubble.offsetWidth; bubble.classList.add("pop");
+}
 
 // ---------- markers / map ----------
 // Every stop is independent (no order) — pins just show found (green) vs not (red).
@@ -1100,20 +1154,31 @@ $("btnMap").onclick = () => {
     : "You found them all! 🏆");
 };
 $("btnPassport").onclick = openPassport;
+// Change Guide is also where you fix your name — it's the only "this is me" screen
+// after the first run, and a kid who typed "asdf" on day one shouldn't be stuck with it.
 $("btnChangeGuide").onclick = () => {
   armBack();
   [...$("guideGrid").children].forEach((c, i) => c.classList.toggle("sel", MASCOTS[i].id === state.mascot));
+  $("guideName").value = state.name || "";
   $("guideModal").classList.remove("hidden");
 };
-$("closeGuide").onclick = () => $("guideModal").classList.add("hidden");
+$("guideName").oninput = () => {
+  state.name = $("guideName").value.trim().slice(0, 12);
+  save();
+  refreshGreeting();
+};
+$("closeGuide").onclick = () => {
+  $("guideModal").classList.add("hidden");
+  syncDevice();
+  refreshGreeting();
+  const m = mascotById(state.mascot);
+  homeSpeak(state.name ? `Let's go exploring, ${state.name}! ${m.emoji}` : `Ready when you are! ${m.emoji}`);
+};
 $("btnHome").onclick = () => { if (backGuard) { try { history.back(); } catch { goMenu(); } } else goMenu(); };
 $("btnDelete").onclick = deleteMyData;
 $("btnInstall").onclick = installNow;
 $("closeInstallHow").onclick = () => $("installModal").classList.add("hidden");
-$("homeGuideBtn").onclick = () => {
-  const m = mascotById(state.mascot);
-  homeSpeak(m.cheer[Math.floor(Math.random() * m.cheer.length)] + " 🌟");
-};
+$("homeGuideBtn").onclick = guideChat;
 $("passportBtn").onclick = openPassport;
 $("closePassport").onclick = () => $("passportModal").classList.add("hidden");
 $("closeStop").onclick = closeStop;

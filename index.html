@@ -156,12 +156,15 @@
   </div>
 </div>
 
-<!-- ============ CHANGE GUIDE ============ -->
+<!-- ============ CHANGE GUIDE (+ your name) ============ -->
 <div id="guideModal" class="overlay hidden">
   <div class="card">
     <h2>Pick your guide 🐾</h2>
     <p class="intro">Choose a new buddy any time!</p>
     <div id="guideGrid" class="mascot-grid"></div>
+    <label class="name-edit" for="guideName">✏️ What should we call you?</label>
+    <input id="guideName" class="name-edit-input" maxlength="12" placeholder="Your name"
+           autocomplete="off" autocapitalize="words" spellcheck="false" />
     <button id="closeGuide" class="big-btn">Done</button>
   </div>
 </div>

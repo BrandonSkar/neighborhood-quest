@@ -49,6 +49,11 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   deleting or reordering cards never re-points anyone's existing stamps.
 - **Lifetime totals + badges** on the home hub (all-time treasures, season, achievements)
   so returning players are rewarded across seasons.
+- **Tap your buddy to chat**: on the home hub he hops, his bubble pops, and he says
+  something new — his own lines mixed with ones that use the kid's name and know how many
+  treasures are left. He never repeats himself twice running.
+- **Change Guide is also where you fix your name** — swap buddy and retype the name you
+  play under, any time. It saves as you type.
 - **📲 Add Quest to my home screen** on the home hub, right above Delete my data. One tap
   installs it where the browser allows (Android/Chrome/Edge); everywhere else it shows the
   steps for that browser. It hides itself once the quest is running as an installed app —
@@ -61,9 +66,9 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | Path | Purpose |
 |---|---|
 | `index.html` / `app.js` / `styles.css` / `data.js` | The game (`data.js` holds the built-in/offline default stops) |
-| `setup.html` | **Hider-only, code-locked (8979)** card editor: name each stop, pick its picture, write its question + answers, drop its pin by standing there, publish, print the QR + code sheets |
+| `setup.html` | **Hider-only, code-locked (8979)**: print a 3×3 sheet of blank stickers, then add each one by its code once it's taped up — pin, name, picture, question — and publish |
 | `stats.html` | Live scan dashboard |
-| `api/config.js` | Stores/serves the hider's published cards (`nq:config`); publishing bumps the season |
+| `api/config.js` | Stores/serves the hider's published cards (`nq:config`), and mints never-repeated sticker codes for the print sheet (`nq:printed`) |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
 | `api/stats.js` | Returns aggregate stats for the dashboard (needs the code) |
 | `api/reset.js` | The "Start over" wipe — clears `nq:*` and resets to Season 1 |
@@ -86,6 +91,10 @@ app ever moves. In setup, **Start a fresh hunt** is off by default: publishing o
 updates the cards, and nobody loses their stamps unless you tick it. A card's picture also
 decides whether the map draws grass and trees around that pin (the outdoorsy ones do).
 
+Setup won't publish if it couldn't read your cards from the database (no signal, say) —
+it says so and disables the button, because publishing from an empty page would wipe
+every stop that's really out there.
+
 Each card can carry a question — "How many swings are at this park?", "Does this park
 have a slide?", "What's the name of this park?" — with up to three answers and a tick on
 the right one. It shows once the kid has stamped that stop, and they tap until they get
@@ -93,22 +102,30 @@ it. Leave the question blank for no quiz. Blank answer slots are dropped on publ
 the tick follows its answer, so you can't accidentally mark the wrong one right.
 
 ## Setting a hunt: print first, decide the places later
-Nothing is committed to a location until you're standing in it.
+A quest starts with **zero cards**. Nothing is committed to a location until you're
+standing in it.
 
-1. **At the desk.** Add one card per sticker you want to carry. Don't name them. Hit
-   **Publish** — that's what saves the codes to the database — then print the sheet. Every
-   sticker comes out identical: 🗺️ *Neighborhood Quest*, a QR, and a big **code**. Cut
-   them out.
-2. **On the walk.** Find a spot you actually like, tape a sticker up, and open
-   `/setup.html` on your phone. Find the card whose code matches the sticker in your hand,
-   tap **📍 Use my location**, type a name and pick a picture. Repeat. A spot that turns
-   out to be rubbish just means you peel it off and re-drop the pin somewhere better.
-3. **Back home.** Add the questions, then **Publish** again with **Start a fresh hunt**
-   unticked so nobody loses their stamps.
+1. **At the desk.** `/setup.html` → **🖨️ Print a new sheet of 9**. That's the whole step:
+   the server hands out nine codes it has never used before, the page lays them out three
+   across, and the print dialog opens. Every sticker is identical — 🗺️ *Neighborhood
+   Quest*, a QR, and a big **code** — so no sticker is promised to any place yet. Cut them
+   out, laminate if you like.
+2. **On the walk.** Tape one up wherever you actually like. Open `/setup.html` on your
+   phone, type the **code printed on that sticker**, tap **📍 Use my location** while
+   you're standing at it, name the spot, pick a picture, write its question — and
+   **Publish**. That sticker is now live on every kid's map. Repeat for the next one.
+3. **Anything left over** stays a blank piece of paper. Carry spares; nothing is wasted,
+   and an unused code simply never becomes a card.
 
-Cards with no name or pin are stored but hidden from the game, so kids never see a stop
-that doesn't exist yet — a card only goes live once it has both. Stickers you print but
-never place simply stay dormant; carry a couple of spares.
+The code is the sticker's whole identity, so setup checks it: a code that isn't on any
+sheet you've printed asks "are you sure?" before it becomes a card (0/o and 1/l are easy
+to mis-read), and the same sticker can't be added twice. Publishing from a second device
+notices any card the page hasn't seen and offers to keep it, so editing from the phone in
+the park and the PC at home can't quietly delete each other's work.
+
+Printed codes are remembered in `nq:printed`, which is what makes "no sheet ever repeats
+a code" true across devices and years. **🧹 Wipe all data, keep my cards** keeps that
+memory (the stickers in your drawer still work); **💣 Wipe everything** clears it.
 
 ## Missing-sticker email alerts (optional)
 `api/scan.js` emails the hider when a child reports a sign is gone. It uses
@@ -169,4 +186,6 @@ its home screen. `scripts/reset-nq.mjs` does the same job from a terminal if you
 The in-app camera needs a **secure context**, so it only runs on `https://` (or
 `http://localhost`) — over `file://` the button explains to use the phone's camera app.
 
-> The **🧹 Reset data** button is a temporary debug control — remove it before launch.
+Until the first card is published, the game shows an empty map and says the hunt is being
+set up. (The built-in Lakeland stops in `data.js` are only used when there's no database
+at all — a bare checkout or `file://`.)

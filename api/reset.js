@@ -15,6 +15,9 @@ const redis = url && token ? new Redis({ url, token }) : null;
 
 const P = "nq:";
 const CONFIG = P + "config";
+// Codes already printed onto paper. "Keep my cards" keeps these too: the stickers in
+// your drawer still say what they say, and a future sheet must not reprint them.
+const PRINTED = P + "printed";
 // Set ADMIN_CODE in Vercel to something only you know; 8979 is the built-in default.
 const ADMIN_CODE = process.env.ADMIN_CODE || "8979";
 
@@ -33,7 +36,7 @@ export default async function handler(req, res) {
     do {
       const [next, batch] = await redis.scan(cursor, { match: P + "*", count: 200 });
       cursor = next;
-      const doomed = keepCards ? batch.filter((k) => k !== CONFIG) : batch;
+      const doomed = keepCards ? batch.filter((k) => k !== CONFIG && k !== PRINTED) : batch;
       if (doomed.length) { await redis.del(...doomed); deleted += doomed.length; }
     } while (cursor !== "0");
 

@@ -8,16 +8,54 @@
 let SEASON = 1;
 
 // ---- Guides the kid can choose from ----
+// `cheer` is what they say when you tap them on the home hub. Plenty of lines each, in
+// their own voice, and app.js never plays the same one twice running.
 const MASCOTS = [
-  { id: "fox",    name: "Scout",   emoji: "🦊", color: "#ff8a3d", cheer: ["Wow, you found it!", "Adventure time!", "You're a super explorer!"] },
-  { id: "cat",    name: "Mittens", emoji: "🐱", color: "#c79bff", cheer: ["Purr-fect!", "Meow, nice find!", "You're pawsome!"] },
-  { id: "puppy",  name: "Pip",     emoji: "🐶", color: "#ffc24b", cheer: ["Woof woof, yay!", "Great sniffing!", "Good job, pal!"] },
-  { id: "robot",  name: "Beep",    emoji: "🤖", color: "#5ec8ff", cheer: ["Treasure detected!", "Beep boop, success!", "Mission complete!"] },
-  { id: "owl",    name: "Luna",    emoji: "🦉", color: "#8ce6b0", cheer: ["Hoo-ray, smart one!", "Wise move!", "You solved it!"] },
-  { id: "dino",   name: "Rex",     emoji: "🦖", color: "#79c24a", cheer: ["ROAR-some job!", "Stomp stomp, yes!", "Dino-mite find!"] },
-  { id: "bunny",  name: "Clover",  emoji: "🐰", color: "#ff9ec4", cheer: ["Hoppy days!", "Ear-resistible find!", "Some-bunny did great!"] },
-  { id: "penguin",name: "Waddles", emoji: "🐧", color: "#5b8fd6", cheer: ["Slip-slidin' success!", "Waddle-tastic!", "Cool find, buddy!"] },
-  { id: "bear",   name: "Honey",   emoji: "🐻", color: "#c98a4a", cheer: ["Beary good job!", "Paw-some!", "Sweet as honey!"] },
+  { id: "fox",    name: "Scout",   emoji: "🦊", color: "#ff8a3d", cheer: [
+    "Wow, you found it! 🎉", "Adventure time! 🗺️", "You're a super explorer! ⭐",
+    "My nose says treasure is THAT way! 👃", "Foxes love a good sneaky hunt. 🦊",
+    "Wanna race to the next one? 💨", "I've got my adventure boots on! 🥾",
+    "Shhh… I think I hear a treasure. 👂", "Best. Team. Ever. 🧡"] },
+  { id: "cat",    name: "Mittens", emoji: "🐱", color: "#c79bff", cheer: [
+    "Purr-fect! 💜", "Meow, nice find! 🐾", "You're pawsome! 🐾",
+    "I napped for nine hours. Ready now! 😸", "Cats always land on the treasure. 🐱",
+    "Let's go before I find a sunny spot… ☀️", "You may pet me. Then we walk. 💜",
+    "Sniff sniff — smells like adventure! 👃", "Whiskers twitching, that means treasure! 〰️"] },
+  { id: "puppy",  name: "Pip",     emoji: "🐶", color: "#ffc24b", cheer: [
+    "Woof woof, yay! 🎉", "Great sniffing! 👃", "Good job, pal! 🦴",
+    "WALK?! Did somebody say WALK?! 🐕", "My tail is wagging SO hard right now! 💛",
+    "You're my favourite human. 🥰", "I'd find every treasure for one belly rub. 🐾",
+    "Let's go let's go let's GO! 💨", "I'm a very good boy AND a very good guide. 🏅"] },
+  { id: "robot",  name: "Beep",    emoji: "🤖", color: "#5ec8ff", cheer: [
+    "Treasure detected! 📡", "Beep boop, success! 🔵", "Mission complete! ✅",
+    "Recharging… ok, done. Let's go! ⚡", "Scanning neighborhood… adventure found. 🛰️",
+    "My circuits say you're awesome. 💙", "Beep. Boop. Beep. (That means hooray!) 🎉",
+    "Calculating fun levels… they are HIGH. 📈", "Explorer mode: ON. 🔛"] },
+  { id: "owl",    name: "Luna",    emoji: "🦉", color: "#8ce6b0", cheer: [
+    "Hoo-ray, smart one! 🌟", "Wise move! 📖", "You solved it! 🧠",
+    "Hoo goes exploring today? YOU do! 🦉", "I see everything from up here. 👁️",
+    "A clever explorer looks up as well as down. 🌳", "Twit-twoo — that means 'nice work'. 💚",
+    "Owls know all the best hiding places. 🌙", "Big brain, bigger adventure! 🧭"] },
+  { id: "dino",   name: "Rex",     emoji: "🦖", color: "#79c24a", cheer: [
+    "ROAR-some job! 🦖", "Stomp stomp, yes! 👣", "Dino-mite find! 💥",
+    "RAWR! (That's dinosaur for hello.) 🦕", "My little arms can't hug, but I would. 💚",
+    "Stomping makes the walking more fun! 👣", "I'm 65 million years old and STILL exploring. 🌋",
+    "Let's make some dino-sized footprints! 🦶", "Nothing scares us. Except broccoli. 🥦"] },
+  { id: "bunny",  name: "Clover",  emoji: "🐰", color: "#ff9ec4", cheer: [
+    "Hoppy days! 🐇", "Ear-resistible find! 👂", "Some-bunny did great! 💗",
+    "Hop hop hop — try it, it's faster! 🐰", "My ears heard a treasure that way! 👂",
+    "You're my lucky clover. 🍀", "Ready to bounce? 🎀", "Wiggle your nose for good luck! 👃",
+    "Carrots later, adventure now! 🥕"] },
+  { id: "penguin",name: "Waddles", emoji: "🐧", color: "#5b8fd6", cheer: [
+    "Slip-slidin' success! ⛸️", "Waddle-tastic! 🐧", "Cool find, buddy! ❄️",
+    "Waddle with me — left, right, left! 👣", "I'd slide there if there was snow. 🏔️",
+    "Penguins stick together. Always. 💙", "Brrr-illiant work! ❄️", "Flap flap! I'm cheering! 🎉",
+    "I brought snacks. Fish, mostly. 🐟"] },
+  { id: "bear",   name: "Honey",   emoji: "🐻", color: "#c98a4a", cheer: [
+    "Beary good job! 🐻", "Paw-some! 🐾", "Sweet as honey! 🍯",
+    "Big bear hug for you! 🤗", "I know every berry bush around here. 🫐",
+    "Slow and steady finds the treasure. 🐢", "That deserves a honey break. 🍯",
+    "You're un-bear-ably good at this! 💛", "Let's lumber on, explorer! 🐾"] },
 ];
 
 // ---- Stops around Lakeland Hills (Auburn, WA) ----
@@ -179,9 +217,17 @@ async function loadConfig() {
     clearTimeout(t);
     if (r.ok) {
       const c = await r.json();
-      if (c && Array.isArray(c.stops) && c.stops.length) {
+      if (c && Array.isArray(c.stops)) {
         nqApplyConfig(c);
         try { localStorage.setItem(NQ_CONFIG_KEY, JSON.stringify(c)); } catch { /* private mode */ }
+      } else if (c && !c.note) {
+        // Database is connected and holds no cards at all — the hunt hasn't been set up
+        // yet, or it was wiped. Show an empty map and say so, rather than the built-in
+        // demo stops: those are real streets in Auburn that nobody has stickered.
+        // (`note` means there's no database at all, where the demo IS the right answer.)
+        STOPS = [];
+        if (Number.isInteger(c.season)) SEASON = c.season;
+        try { localStorage.removeItem(NQ_CONFIG_KEY); } catch {}
       }
     }
   } catch { /* offline / timeout -> defaults or cache */ }

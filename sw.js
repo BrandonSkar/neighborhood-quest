@@ -1,7 +1,7 @@
 // Service worker — installable + offline, but NETWORK-FIRST so a new deploy shows
 // up immediately when online (falls back to cache only when the network fails).
 // Scan logging (/api/*) always goes straight to the network and is never cached.
-const CACHE = "lakeland-quest-v5";
+const CACHE = "lakeland-quest-v6";
 const SHELL = [
   "./",
   "./index.html",
