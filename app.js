@@ -131,6 +131,7 @@ function goMenu() {
   stopGuiding();
   BACK_SUBS.forEach((id) => $(id).classList.add("hidden"));
   if (state.mascot) goHome(); else show("picker");
+  maybeParty();     // backing out of the last stop still earns the fanfare
 }
 let backGuard = false;
 function armBack() { if (!backGuard) { backGuard = true; try { history.pushState({ nq: 1 }, ""); } catch {} } }
@@ -483,11 +484,14 @@ function renderLifetime() {
 // ---------- scan arrival animation ----------
 let scanTimers = [];
 let pendingStopId = null;
+let pendingFirst = false;      // did THIS arrival stamp something new?
+let partyAfterCard = false;    // ...and did it finish the hunt? (celebrate on the way out)
 function clearScanTimers() { scanTimers.forEach(clearTimeout); scanTimers = []; }
 function startArrival(id, viaQR = true) {
   const s = stopById(id); if (!s) return;
   armBack();
   pendingStopId = id;
+  pendingFirst = false;
   const el = $("scanAnim");
   el.className = "scan-anim finding";
   $("scanEmoji").textContent = s.emoji;
@@ -506,6 +510,7 @@ function startArrival(id, viaQR = true) {
     el.classList.add("stamp");
     $("scanTitle").textContent = "Stamping your passport…";
     const first = earnSticker(id);
+    pendingFirst = first;
     chime();
     miniConfetti();
     if (!first) $("scanTitle").textContent = "You found this one already! ⭐";
@@ -517,15 +522,25 @@ function finishArrival() {
   $("scanAnim").classList.add("hidden");
   maybePromptInstall(); // nudge "Add to Home Screen" after a scan
   const id = pendingStopId; pendingStopId = null;
-  if (STOPS.length > 0 && foundCount() >= STOPS.length) { show("game"); finish(); return; }
+  // The stop's mission and the hider's question come first — ALWAYS, even when this was
+  // the last one. The finish party used to jump in here instead, which on a one-stop
+  // hunt meant the child never saw the card at all.
+  partyAfterCard = pendingFirst && STOPS.length > 0 && foundCount() >= STOPS.length;
+  pendingFirst = false;
   show("game");
   openStop(id);
 }
 function skipArrival() {
   if (pendingStopId == null) return;
   clearScanTimers();
-  earnSticker(pendingStopId);
+  pendingFirst = earnSticker(pendingStopId) || pendingFirst;
   finishArrival();
+}
+// The "you got them all" celebration, held back until they leave the stop card.
+function maybeParty() {
+  if (!partyAfterCard) return;
+  partyAfterCard = false;
+  finish();
 }
 
 function earnSticker(id) {
@@ -872,7 +887,11 @@ function flashCardNote(t, good) {
   n.classList.toggle("good", !!good);
   n.classList.remove("hidden");
 }
-function closeStop() { stopGuiding(); openCodeBox(false); $("stopModal").classList.add("hidden"); }
+function closeStop() {
+  stopGuiding(); openCodeBox(false);
+  $("stopModal").classList.add("hidden");
+  maybeParty();
+}
 
 // ---------- in-app QR camera ("Scan sticker") ----------
 // Scanning inside the app means no backing out to the phone's camera app. Decoding
@@ -1092,7 +1111,13 @@ function openPassport() {
 function finish() {
   armBack();
   logEvent("complete", null);
+  const n = foundCount();
   $("finishName").textContent = state.name ? `You did it, ${state.name}! 🎉` : "You did it! 🎉";
+  // A hunt that's still being hidden gets finished after one sticker, so don't claim the
+  // whole neighborhood is done — say what's true and promise more.
+  $("finishBlurb").textContent = n === 1
+    ? "You found the treasure! Keep your eyes peeled — more stickers are on their way. 🕵️"
+    : `You found all ${n} treasures! Keep your eyes peeled — more might appear. 🕵️`;
   $("finishStickers").textContent = STOPS.map((s) => s.sticker).join(" ");
   $("finishModal").classList.remove("hidden");
   bigConfetti();
@@ -1189,10 +1214,10 @@ $("codeBtn").onclick = () => openCodeBox($("codeForm").classList.contains("hidde
 $("codeForm").onsubmit = submitTypedCode;
 $("stickerGoneBtn").onclick = reportStickerMissing;
 $("scanSkip").onclick = skipArrival;
-$("playAgain").onclick = () => {
-  state.visited = []; save(); syncDevice();   // keep the dashboard in step with the reset
+$("finishDone").onclick = () => {
   $("finishModal").classList.add("hidden");
-  refreshProgress(); goHome();
+  goHome();
+  openPassport();      // the trophy cabinet, not a reset button
 };
 
 // ---------- install / Add to Home Screen ----------

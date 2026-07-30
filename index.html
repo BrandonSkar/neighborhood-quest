@@ -174,9 +174,11 @@
   <div class="card finish-card">
     <div class="medal">🏅</div>
     <h2 id="finishName">You did it!</h2>
-    <p>You explored all of Lakeland Hills and collected every treasure!</p>
+    <p id="finishBlurb">You found every treasure that's out there!</p>
     <div class="finish-stickers" id="finishStickers"></div>
-    <button id="playAgain" class="big-btn">Play Again 🔄</button>
+    <!-- deliberately NOT a "play again" reset: a child tapping the only button on a
+         celebration card must never lose the stamps they just earned -->
+    <button id="finishDone" class="big-btn">See my passport 📖</button>
   </div>
 </div>
 

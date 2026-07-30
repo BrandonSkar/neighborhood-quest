@@ -47,6 +47,11 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   as a find. Either way `stats.html` shows which sign to reprint.
 - **Stamps are keyed by each stop's QR `code`**, not its position in the list, so adding,
   deleting or reordering cards never re-points anyone's existing stamps.
+- **A stamp is never taken away by the app.** The stop's mission and question always come
+  first, and the "you got them all" party waits until the child leaves that card — so a
+  hunt with only one sticker out still gets played properly. The party's button opens the
+  passport; there is no reset in the kid's app but **🗑️ Delete my data**, and only a new
+  season clears stamps.
 - **Lifetime totals + badges** on the home hub (all-time treasures, season, achievements)
   so returning players are rewarded across seasons.
 - **Tap your buddy to chat**: on the home hub he hops, his bubble pops, and he says
