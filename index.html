@@ -53,6 +53,8 @@
       <div id="badgeRow" class="badge-row"></div>
     </div>
     <div class="home-menu">
+      <!-- only here once a prize is actually in reach, or already won -->
+      <button id="btnPrize" class="menu-btn prize hidden"><span>🎁</span><b id="btnPrizeText">My prize</b></button>
       <button id="btnMap" class="menu-btn map"><span>🗺️</span>Explore Map</button>
       <button id="btnPassport" class="menu-btn pass"><span>📖</span>My Passport</button>
       <button id="btnChangeGuide" class="menu-btn guide"><span>🔁</span>Change Guide</button>
@@ -179,6 +181,29 @@
     <!-- deliberately NOT a "play again" reset: a child tapping the only button on a
          celebration card must never lose the stamps they just earned -->
     <button id="finishDone" class="big-btn">See my passport 📖</button>
+  </div>
+</div>
+
+<!-- ============ PRIZE: PICK ONE ============ -->
+<div id="prizeModal" class="overlay hidden">
+  <div class="card prize-card">
+    <div class="prize-crown">🎁</div>
+    <h2 id="prizeTitle">Select your prize!</h2>
+    <p id="prizeSub" class="intro">You found them all — one of these is yours!</p>
+    <div id="prizeGrid" class="prize-grid"></div>
+    <button id="prizeTake" class="big-btn prize-take" disabled>Pick one first 👆</button>
+  </div>
+</div>
+
+<!-- ============ PRIZE: WHERE TO COLLECT IT ============ -->
+<div id="prizePlaceModal" class="overlay hidden">
+  <div class="card prize-card">
+    <h2 id="prizePlaceTitle">Go and get it! 🏃</h2>
+    <div id="prizePicked" class="prize-picked"></div>
+    <div id="prizePlaceShot" class="prize-shot hidden"></div>
+    <p id="prizePlaceText" class="prize-addr"></p>
+    <button id="prizePlaceDone" class="big-btn done-btn">Got it! 🎉</button>
+    <p class="prize-tip">Show this to a grown-up — it stays on your 🎁 button.</p>
   </div>
 </div>
 

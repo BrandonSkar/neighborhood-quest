@@ -266,6 +266,38 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .slot .q{opacity:.35;font-size:26px;}
 .slot small{font-size:9px;font-weight:800;color:#5a4a34;line-height:1.05;text-align:center;width:100%;}
 
+/* ---------- The prize: pick one, then go and get it ---------- */
+.menu-btn.prize{background:linear-gradient(100deg,#ff9d3d,#ff6f61);}
+.menu-btn.prize.ready{animation:prizeCall 1.6s ease-in-out infinite;}
+@keyframes prizeCall{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+.prize-card{background:linear-gradient(165deg,#fff8ec,#ffe9c9);}
+.prize-crown{font-size:60px;line-height:1;animation:idle 2.2s ease-in-out infinite;}
+.prize-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 16px;}
+.prize-opt{position:relative;background:#fff;border:4px solid #fff;border-radius:20px;padding:8px;cursor:pointer;
+  font-family:inherit;box-shadow:0 5px 0 rgba(0,0,0,.12);transition:transform .1s;}
+.prize-opt:active{transform:translateY(2px);}
+.prize-opt .po-shot{display:block;width:100%;aspect-ratio:1;border-radius:14px;background:#eee center/cover no-repeat;}
+.prize-opt .po-name{display:block;margin-top:6px;font-weight:800;font-size:14px;color:var(--ink);
+  line-height:1.15;word-break:break-word;}
+.prize-opt.sel{border-color:var(--green);transform:translateY(-3px) scale(1.03);
+  box-shadow:0 8px 0 rgba(31,174,103,.35);}
+.prize-opt.sel::after{content:"✓";position:absolute;top:-10px;right:-10px;background:var(--green);color:#fff;
+  width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:900;border:3px solid #fff;}
+.prize-take{width:100%;background:var(--green);}
+/* where to collect it */
+.prize-picked{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 12px;
+  margin-bottom:12px;text-align:left;box-shadow:0 3px 0 rgba(0,0,0,.07);}
+.prize-picked .pp-shot{flex:0 0 auto;width:64px;height:64px;border-radius:14px;background:#eee center/cover no-repeat;}
+.prize-picked .pp-name{font-weight:900;font-size:17px;color:#146b3f;line-height:1.2;}
+.prize-shot{width:100%;aspect-ratio:4/3;border-radius:18px;background:#eee center/cover no-repeat;
+  border:5px solid #fff;box-shadow:0 6px 0 rgba(0,0,0,.1);}
+.prize-addr{font-weight:900;font-size:18px;line-height:1.35;color:var(--ink);background:#fff;
+  border-radius:16px;padding:12px 14px;margin:12px 0 14px;white-space:pre-wrap;}
+.prize-tip{font-size:12px;font-weight:700;color:#a08a6a;margin:10px 0 0;}
+@media (prefers-reduced-motion: reduce){
+  .prize-crown,.menu-btn.prize.ready{animation:none;}
+}
+
 /* ---------- Change guide: your name lives here too ---------- */
 .name-edit{display:block;font-weight:800;font-size:15px;color:#8a7a62;margin:2px 0 8px;}
 .name-edit-input{font-family:inherit;font-size:19px;font-weight:800;text-align:center;padding:12px 16px;

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neighborhood Quest — Prize (Hider Only)</title>
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#f3f6fb;color:#2a3346;padding:24px;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{margin:0 0 4px;color:#ff6f61;}
+  h2{margin:22px 0 8px;color:#3a5a8a;font-size:19px;}
+  p.lede{color:#5b6b86;margin-top:0;}
+  .panel{background:#fff;border:1px solid #dde4f0;border-radius:14px;padding:16px 18px;margin-bottom:18px;}
+  label{font-weight:700;display:block;margin-bottom:6px;}
+  input,textarea{width:100%;font-size:16px;padding:10px 12px;border:2px solid #cdd6e8;border-radius:10px;
+    font-family:inherit;background:#fff;color:inherit;}
+  input:focus,textarea:focus{outline:none;border-color:#5b8def;}
+  textarea{resize:vertical;min-height:74px;line-height:1.4;}
+  button{font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:10px;padding:11px 18px;
+    cursor:pointer;background:#5b8def;color:#fff;}
+  button.ghost{background:#eef2fb;color:#3a5a8a;border:1px solid #cdd6e8;}
+  button.danger{background:#ffe9ea;color:#d0344a;border:1px solid #ffc9cf;}
+  button.big{font-size:17px;padding:14px 22px;background:#1fae67;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .note{font-size:13px;color:#7a89a6;margin-top:8px;}
+  .hidden{display:none !important;}
+  a{color:#2b6fd6;font-weight:700;}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;}
+  .status{font-weight:700;margin-left:6px;}
+  .status.ok{color:#118a52;} .status.err{color:#d0344a;}
+  .check{display:flex;align-items:center;gap:8px;font-weight:700;color:#3a5a8a;font-size:15px;}
+  .check input{width:auto;}
+
+  /* ---- lock gate ---- */
+  #lock .panel{max-width:420px;margin:8vh auto 0;text-align:center;}
+  #lock input{text-align:center;letter-spacing:8px;font-size:26px;font-weight:800;}
+  .shake{animation:shk .35s;}
+  @keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
+  /* ---- picture slots ---- */
+  .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:10px;}
+  .slot{border:2px dashed #cdd6e8;border-radius:14px;padding:10px;background:#fafcff;text-align:center;}
+  .slot.full{border-style:solid;border-color:#b6ebcf;background:#f6fffa;}
+  .slot .shot{width:100%;aspect-ratio:1;border-radius:10px;background:#eef2fb center/cover no-repeat;
+    display:grid;place-items:center;font-size:34px;color:#a0abc2;margin-bottom:8px;}
+  .slot .cap{margin-top:8px;font-size:15px;text-align:center;}
+  .slot .row{display:flex;gap:8px;margin-top:8px;}
+  .slot .row button{flex:1;padding:9px 8px;font-size:14px;}
+  .slot .meta{font-size:12px;color:#7a89a6;margin-top:6px;min-height:16px;}
+  .wide{max-width:420px;}
+  .wide .shot{aspect-ratio:4/3;}
+  input[type=file]{display:none;}
+  .preview{margin-top:14px;border:1px solid #e2e8f4;border-radius:14px;padding:14px;background:#fbfdff;}
+  .preview h3{margin:0 0 8px;font-size:15px;color:#3a5a8a;}
+  .pv-card{max-width:330px;margin:0 auto;background:#fff8ec;border:5px solid #fff;border-radius:22px;
+    padding:14px;text-align:center;box-shadow:0 10px 26px rgba(0,0,0,.14);}
+  .pv-card h4{margin:2px 0 10px;font-size:20px;color:#4a3b2a;}
+  .pv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .pv-grid div{aspect-ratio:1;border-radius:14px;background:#eef2fb center/cover no-repeat;border:3px solid #fff;}
+  .pv-addr{margin:10px 0 0;font-weight:800;color:#4a3b2a;font-size:15px;line-height:1.35;}
+</style>
+</head>
+<body>
+
+<!-- ============ LOCK GATE ============ -->
+<div id="lock">
+  <div class="panel">
+    <h1>🔒 Prize</h1>
+    <p class="lede">Enter the setup code to set up the prize.</p>
+    <input id="codeInput" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" />
+    <div style="margin-top:12px;"><button id="unlockBtn" class="big" style="width:100%;">Unlock</button></div>
+    <p id="lockMsg" class="note"></p>
+  </div>
+</div>
+
+<!-- ============ EDITOR ============ -->
+<div id="editor" class="wrap hidden">
+  <h1>🎁 Neighborhood Quest — Prize</h1>
+  <p class="lede">Find enough treasures and the child gets to <b>pick a prize</b> — then they're shown where to collect it. &nbsp;<a href="setup.html">🗺️ Cards →</a> &nbsp;<a href="stats.html">📊 Dashboard →</a></p>
+
+  <div class="panel">
+    <h2 style="margin-top:2px;">1. When does it unlock?</h2>
+    <label class="check"><input type="checkbox" id="enabled" /> The prize is switched on</label>
+    <p class="note" style="margin-top:8px;">Turn it off any time — the child just never sees it, and nothing else changes.</p>
+    <div class="toolbar" style="margin-top:12px;align-items:center;">
+      <label style="margin:0;">Unlock after</label>
+      <input id="need" type="number" min="1" max="40" value="4" style="width:90px;text-align:center;font-weight:800;" />
+      <label style="margin:0;">treasures found</label>
+      <span id="needNote" class="note" style="margin:0;"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:2px;">2. The prizes to choose from</h2>
+    <p class="note" style="margin-top:0;">Photograph each prize. Pictures are shrunk on this device before they're sent, so a phone photo is fine. Leave a slot empty to offer fewer than four. The name underneath is optional.</p>
+    <div id="slots" class="slots"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:2px;">3. Where to collect it</h2>
+    <p class="note" style="margin-top:0;">One photo of the hiding place, and the words the child is shown once they've picked. This is the only place your address is stored — it isn't in the app's code.</p>
+    <div id="placeSlot" class="slots"></div>
+    <label style="margin-top:14px;">What to tell them</label>
+    <textarea id="placeText" maxlength="300" placeholder="e.g. 1234 Example Ave SE, Springfield WA 98000. Behind the tree"></textarea>
+    <p class="note">Shown exactly as you type it, under the photo.</p>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:2px;">4. Save it</h2>
+    <div class="toolbar">
+      <button id="saveBtn" class="big">💾 Save the prize</button>
+      <span id="saveStatus" class="status"></span>
+    </div>
+    <p class="note">Saves to the game's database. Every phone picks it up next time it opens.</p>
+    <div class="preview">
+      <h3>What the child will see</h3>
+      <div class="pv-card">
+        <h4>🎁 Select your prize!</h4>
+        <div id="pvGrid" class="pv-grid"></div>
+        <div id="pvPlace" class="pv-grid" style="grid-template-columns:1fr;margin-top:10px;"></div>
+        <p id="pvAddr" class="pv-addr"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel danger-zone" style="border-color:#ffc9cf;background:#fffafa;">
+    <h2 style="margin-top:2px;">Start the prize over</h2>
+    <p class="note" style="margin-top:0;">Clears the pictures and the address from the database. The cards, pins and stamps are untouched.</p>
+    <div class="toolbar">
+      <button id="wipeBtn" class="danger">🧹 Clear the prize</button>
+      <span id="wipeStatus" class="status"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const DEFAULT_CODE = "8979";
+  const CODE_KEY = "nq_admin_code";
+  let SETUP_CODE = DEFAULT_CODE;
+
+  // ---- lock gate (same code as setup.html; the server is the real judge) ----
+  async function codeWorks(v) {
+    try {
+      const r = await fetch("/api/stats?code=" + encodeURIComponent(v), { cache: "no-store" });
+      if (r.status === 403) return false;
+      if (r.ok) return true;
+    } catch { /* offline — fall back to the built-in code */ }
+    return v === DEFAULT_CODE;
+  }
+  async function unlockWith(v) {
+    if (!(await codeWorks(v))) return false;
+    SETUP_CODE = v;
+    try { localStorage.setItem(CODE_KEY, v); } catch {}
+    $("lock").classList.add("hidden");
+    $("editor").classList.remove("hidden");
+    initEditor();
+    return true;
+  }
+  async function tryUnlock() {
+    const v = $("codeInput").value.trim();
+    if (v && await unlockWith(v)) return;
+    $("lockMsg").textContent = "Nope, try again.";
+    const p = $("codeInput"); p.classList.remove("shake"); void p.offsetWidth; p.classList.add("shake");
+    p.value = ""; p.focus();
+  }
+  $("unlockBtn").onclick = tryUnlock;
+  $("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+  (async () => {
+    const saved = (() => { try { return localStorage.getItem(CODE_KEY) || ""; } catch { return ""; } })();
+    if (saved && await unlockWith(saved)) return;
+    $("codeInput").focus();
+  })();
+
+  // ---- state ----
+  const SLOTS = 4;
+  let prize = { enabled: false, need: 4, prizes: [], place: { text: "", img: "" } };
+  let slots = [];                    // [{ id, label }] — one per prize picture, "" id = empty
+  let placeImg = "";
+  const newId = () => Math.random().toString(36).slice(2, 10).replace(/[^a-z0-9]/g, "") + "0";
+  const imgUrl = (id) => "/api/prize?img=" + encodeURIComponent(id);
+
+  async function initEditor() {
+    try {
+      const r = await fetch("/api/prize", { cache: "no-store" });
+      if (r.ok) prize = Object.assign(prize, await r.json());
+    } catch { /* offline: start blank */ }
+    slots = [];
+    for (let i = 0; i < SLOTS; i++) slots.push(prize.prizes[i] ? { ...prize.prizes[i] } : { id: "", label: "" });
+    placeImg = (prize.place && prize.place.img) || "";
+    $("enabled").checked = !!prize.enabled;
+    $("need").value = prize.need || 4;
+    $("placeText").value = (prize.place && prize.place.text) || "";
+    renderSlots();
+    renderPreview();
+    countStops();
+  }
+
+  // how many cards are live, so "unlock after N" can be sanity-checked
+  async function countStops() {
+    try {
+      const r = await fetch("/api/config", { cache: "no-store" });
+      if (!r.ok) return;
+      const c = await r.json();
+      const live = (Array.isArray(c.stops) ? c.stops : []).filter((s) => s && s.name && Array.isArray(s.ll)).length;
+      $("needNote").textContent = live
+        ? `(you have ${live} sticker${live > 1 ? "s" : ""} live right now)`
+        : "(no stickers are live yet)";
+      $("needNote").style.color = (+$("need").value > live) ? "#d0344a" : "#7a89a6";
+    } catch {}
+  }
+  $("need").oninput = () => { renderPreview(); countStops(); };
+  $("enabled").onchange = renderPreview;
+  $("placeText").oninput = renderPreview;
+
+  // ---- shrink a photo before it ever leaves the phone ----
+  // A modern phone photo is 3-6 MB; the database (and a kid's signal in a park) wants
+  // tens of kilobytes. Longest edge 900 px is plenty for a card on a phone screen.
+  const MAX_EDGE = 900, TARGET_BYTES = 260_000;
+  async function shrink(file) {
+    const bmp = await loadBitmap(file);
+    const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    cv.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    if (bmp.close) bmp.close();
+    // step the quality down until it fits — a busy photo needs more squeezing than a plain one
+    let out = "";
+    for (const q of [0.72, 0.6, 0.5, 0.4, 0.32]) {
+      out = cv.toDataURL("image/jpeg", q);
+      if (out.length <= TARGET_BYTES) break;
+    }
+    return out;
+  }
+  function loadBitmap(file) {
+    if (window.createImageBitmap) {
+      // honour the phone's rotation flag, or portrait photos come out sideways
+      return createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => viaImgTag(file));
+    }
+    return viaImgTag(file);
+  }
+  function viaImgTag(file) {
+    return new Promise((done, fail) => {
+      const u = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => { URL.revokeObjectURL(u); done(im); };
+      im.onerror = () => { URL.revokeObjectURL(u); fail(new Error("bad image")); };
+      im.src = u;
+    });
+  }
+
+  async function upload(file, meta) {
+    meta.textContent = "Shrinking…";
+    let data;
+    try { data = await shrink(file); }
+    catch { meta.textContent = "Couldn't read that picture — try a JPEG or PNG."; return null; }
+    const id = newId();
+    meta.textContent = `Uploading ${Math.round(data.length / 1024)} KB…`;
+    try {
+      const r = await fetch("/api/prize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, img: { id, data } }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { meta.textContent = j.error || j.note || "Upload failed."; return null; }
+      meta.textContent = `Saved · ${Math.round(data.length / 1024)} KB`;
+      return id;
+    } catch {
+      meta.textContent = "Couldn't reach the server — open this page on the live site.";
+      return null;
+    }
+  }
+  async function dropImage(id) {
+    if (!id) return;
+    try {
+      await fetch("/api/prize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, drop: id }),
+      });
+    } catch {}
+  }
+
+  // ---- the four prize slots ----
+  function renderSlots() {
+    const box = $("slots"); box.innerHTML = "";
+    slots.forEach((s, i) => box.appendChild(slotEl({
+      full: !!s.id,
+      shot: s.id ? imgUrl(s.id) : "",
+      blank: "🎁",
+      title: "Prize " + (i + 1),
+      caption: { value: s.label, placeholder: "Name (optional)", on: (v) => { s.label = v; renderPreview(); } },
+      onPick: async (file, meta) => {
+        const old = s.id;
+        const id = await upload(file, meta);
+        if (!id) return;
+        s.id = id; if (old) dropImage(old);
+        renderSlots(); renderPreview();
+      },
+      onClear: () => { if (s.id) dropImage(s.id); s.id = ""; s.label = ""; renderSlots(); renderPreview(); },
+    })));
+
+    const pbox = $("placeSlot"); pbox.innerHTML = "";
+    const el = slotEl({
+      full: !!placeImg,
+      shot: placeImg ? imgUrl(placeImg) : "",
+      blank: "🌳",
+      title: "The hiding place",
+      onPick: async (file, meta) => {
+        const old = placeImg;
+        const id = await upload(file, meta);
+        if (!id) return;
+        placeImg = id; if (old) dropImage(old);
+        renderSlots(); renderPreview();
+      },
+      onClear: () => { if (placeImg) dropImage(placeImg); placeImg = ""; renderSlots(); renderPreview(); },
+    });
+    el.classList.add("wide");
+    pbox.appendChild(el);
+  }
+
+  function slotEl(o) {
+    const el = document.createElement("div");
+    el.className = "slot" + (o.full ? " full" : "");
+    el.innerHTML =
+      `<div class="shot"${o.shot ? ` style="background-image:url('${o.shot}')"` : ""}>${o.shot ? "" : o.blank}</div>` +
+      `<label style="margin:0;font-size:14px;color:#3a5a8a;">${o.title}</label>` +
+      (o.caption ? `<input class="cap" maxlength="40" placeholder="${o.caption.placeholder}" value="${escapeAttr(o.caption.value)}" />` : "") +
+      `<div class="row"><button class="pick ghost">${o.full ? "🔄 Replace" : "📷 Add a photo"}</button>` +
+      (o.full ? `<button class="clear danger">✕</button>` : "") + `</div>` +
+      `<p class="meta"></p>` +
+      `<input type="file" accept="image/*" />`;
+
+    const file = el.querySelector('input[type=file]');
+    const meta = el.querySelector(".meta");
+    el.querySelector(".pick").onclick = () => file.click();
+    file.onchange = () => { if (file.files && file.files[0]) o.onPick(file.files[0], meta); };
+    const clear = el.querySelector(".clear");
+    if (clear) clear.onclick = o.onClear;
+    const cap = el.querySelector(".cap");
+    if (cap) cap.oninput = () => o.caption.on(cap.value);
+    return el;
+  }
+
+  // ---- a mock-up of the child's screen, so you can see it before they do ----
+  function renderPreview() {
+    const g = $("pvGrid"); g.innerHTML = "";
+    slots.filter((s) => s.id).forEach((s) => {
+      const d = document.createElement("div");
+      d.style.backgroundImage = `url('${imgUrl(s.id)}')`;
+      g.appendChild(d);
+    });
+    if (!g.children.length) g.innerHTML = `<div style="grid-column:1/-1;padding:16px;font-size:13px;color:#7a89a6;background:#fff;">Add a photo and it shows up here</div>`;
+    const p = $("pvPlace"); p.innerHTML = "";
+    if (placeImg) { const d = document.createElement("div"); d.style.aspectRatio = "4/3"; d.style.backgroundImage = `url('${imgUrl(placeImg)}')`; p.appendChild(d); }
+    $("pvAddr").textContent = $("placeText").value.trim();
+  }
+
+  // ---- save ----
+  $("saveBtn").onclick = async () => {
+    const config = {
+      enabled: $("enabled").checked,
+      need: +$("need").value || 4,
+      prizes: slots.filter((s) => s.id).map((s) => ({ id: s.id, label: (s.label || "").trim() })),
+      place: { text: $("placeText").value.trim(), img: placeImg },
+    };
+    if (config.enabled && !config.prizes.length) { setSave("Add at least one prize photo first.", "err"); return; }
+    if (config.enabled && !config.place.text && !config.place.img) {
+      if (!confirm("The child won't be told where to collect it. Save anyway?")) return;
+    }
+    const btn = $("saveBtn"); btn.disabled = true; setSave("Saving…", "");
+    try {
+      const r = await fetch("/api/prize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, config }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { setSave(j.error || j.note || "Save failed.", "err"); btn.disabled = false; return; }
+      prize = j.config;
+      setSave(config.enabled
+        ? `✅ Saved — ${config.prizes.length} prize(s), unlocking after ${config.need} treasure(s).`
+        : "✅ Saved — the prize is switched off for now.", "ok");
+    } catch {
+      setSave("Couldn't reach the server — open this page on the live site.", "err");
+    }
+    btn.disabled = false;
+  };
+  function setSave(t, cls) { const s = $("saveStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+
+  $("wipeBtn").onclick = async () => {
+    if (!confirm("Clear the prize pictures and address?\n\nYour cards, pins and everyone's stamps stay exactly as they are.")) return;
+    setWipe("Clearing…", "");
+    for (const s of slots) if (s.id) await dropImage(s.id);
+    if (placeImg) await dropImage(placeImg);
+    try {
+      const r = await fetch("/api/prize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, config: { enabled: false, need: 4, prizes: [], place: { text: "", img: "" } } }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { setWipe(j.error || "Couldn't clear it.", "err"); return; }
+      slots = slots.map(() => ({ id: "", label: "" }));
+      placeImg = ""; $("enabled").checked = false; $("placeText").value = "";
+      renderSlots(); renderPreview();
+      setWipe("✅ Cleared.", "ok");
+    } catch { setWipe("Couldn't reach the server.", "err"); }
+  };
+  function setWipe(t, cls) { const s = $("wipeStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+
+  function escapeAttr(s){return (s+"").replace(/[&<>"]/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
+</script>
+</body>
+</html>

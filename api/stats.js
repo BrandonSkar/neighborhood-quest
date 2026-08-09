@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       .map((p) => ({
         id: p.id, name: p.name || "", mascot: p.mascot || "",
         found: Array.isArray(p.visited) ? p.visited.length : 0,
-        lifetimeFound: p.lifetimeFound || 0, seasonsPlayed: p.seasonsPlayed || 0,
+        lifetimeFound: p.lifetimeFound || 0, seasonsPlayed: p.seasonsPlayed || 0, prize: p.prize || "",
         season: p.season == null ? null : p.season, updated: p.updated || 0,
       }))
       .sort((a, b) => (b.updated || 0) - (a.updated || 0));

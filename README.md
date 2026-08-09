@@ -77,8 +77,10 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 |---|---|
 | `index.html` / `app.js` / `styles.css` / `data.js` | The game (`data.js` holds the built-in/offline default stops) |
 | `setup.html` | **Hider-only, code-locked (8979)**: print a 3×3 sheet of blank stickers, then add each one by its code once it's taped up — pin, name, picture, question — and publish |
+| `setup-prize.html` | **Hider-only**: photograph the prizes and the hiding place, set how many finds unlock them, and write where to collect |
 | `stats.html` | Live scan dashboard |
 | `api/config.js` | Stores/serves the hider's published cards (`nq:config`), and mints sticker codes for the print sheet that don't clash with any live card |
+| `api/prize.js` | The prize: its photos (`nq:prizeimg:<id>`, one per key) and its setup (`nq:prize`) |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
 | `api/stats.js` | Returns aggregate stats for the dashboard (needs the code) |
 | `api/reset.js` | The "Start over" wipe — clears `nq:*` and resets to Season 1 |
@@ -140,6 +142,27 @@ matters when a card goes live, and setup won't let you add a code that's already
 Publishing from a second device notices any card the page hasn't seen and offers to keep
 it, so editing from the phone in the park and the PC at home can't quietly delete each
 other's work.
+
+## The prize (optional)
+`/setup-prize.html`, behind the same code. Photograph up to four prizes and one photo of
+where they're hidden, say how many treasures unlock them (default 4), and type what the
+child should be told — *"1234 Example Ave SE, Springfield WA. Behind the tree"*. There's a
+live preview of the card they'll get, and an on/off switch.
+
+Photos are shrunk **in your browser** before upload — longest edge 900 px, JPEG, stepped
+down until it's under ~250 KB — so a 6 MB phone photo becomes ~55 KB. Each one is
+uploaded and stored under its own key, so no single request has to carry all five.
+Your address lives only in the database, never in this repo.
+
+For the child: finding the required number opens **"Select your prize!"** with the photos.
+The stop's own card and question always come first — the prize waits until they leave it,
+and it replaces the generic "you did it" card rather than stacking on top of it. They tap
+one, confirm, and get the hiding-place photo with your words under it. It's then parked on
+a 🎁 button on the home hub so it can never be lost, and the pictures are pre-loaded once
+they're one find away so the big moment isn't five spinners on a weak signal. The
+dashboard's **Prize picked** column tells you which one to go and hide.
+
+A new season clears the claim, so the next hunt can win a prize again.
 
 ## Missing-sticker email alerts (optional)
 `api/scan.js` emails the hider when a child reports a sign is gone. It uses

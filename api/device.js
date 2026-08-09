@@ -53,7 +53,10 @@ export default async function handler(req, res) {
       if (prev && typeof prev === "object" && prev.created) created = prev.created;
     } catch { /* ignore */ }
 
-    const record = { id: session, name, mascot, visited, season, lifetimeFound, seasonsPlayed, created, updated: now };
+    // which prize they chose, so the grown-up knows what to go and hide
+    const prize = (b.prize || "").toString().slice(0, 40);
+
+    const record = { id: session, name, mascot, visited, season, lifetimeFound, seasonsPlayed, prize, created, updated: now };
     await redis.hset(PROFILES, { [session]: record }); // stored as one JSON value
 
     res.status(200).json({ ok: true });

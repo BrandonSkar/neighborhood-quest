@@ -33,7 +33,9 @@ export default async function handler(req, res) {
     do {
       const [next, batch] = await redis.scan(cursor, { match: P + "*", count: 200 });
       cursor = next;
-      const doomed = keepCards ? batch.filter((k) => k !== CONFIG) : batch;
+      // "keep my cards" keeps the whole SETUP: the published stops and the prize you
+      // photographed. Only the players' side of the house gets cleared.
+      const doomed = keepCards ? batch.filter((k) => k !== CONFIG && !k.startsWith(P + "prize")) : batch;
       if (doomed.length) { await redis.del(...doomed); deleted += doomed.length; }
     } while (cursor !== "0");
 

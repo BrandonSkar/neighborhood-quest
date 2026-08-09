@@ -65,6 +65,7 @@
   <div class="row">
     <button onclick="loadStats()">🔄 Refresh</button>
     <a class="link" href="setup.html">🗺️ Setup &amp; cards →</a>
+    <a class="link" href="setup-prize.html">🎁 Prize →</a>
     <span class="muted" id="updated"></span>
   </div>
 
@@ -78,7 +79,7 @@
 
   <div class="panel" id="playersPanel">
     <h2>Players &amp; progress</h2>
-    <table><thead><tr><th>Player</th><th>This season</th><th>All-time</th><th>Season</th><th>Last active</th></tr></thead>
+    <table><thead><tr><th>Player</th><th>This season</th><th>Prize picked</th><th>All-time</th><th>Season</th><th>Last active</th></tr></thead>
     <tbody id="players"></tbody></table>
     <div id="playersEmpty" class="muted" style="display:none;">No players yet — once someone picks a guide, they'll appear here.</div>
   </div>
@@ -146,6 +147,7 @@ function render(d, live){
       return `<tr>
         <td>${mascotEmoji(p.mascot)} <b>${name}</b></td>
         <td>🏅 ${p.found}/${total}${p.found>=total?' ✅':''}</td>
+        <td>${p.prize ? '🎁 ' + escapeHtml(p.prize) : '<span class="muted">—</span>'}</td>
         <td>${p.lifetimeFound}</td>
         <td>${p.season==null?'—':p.season}</td>
         <td class="muted">${timeAgo(p.updated)}</td></tr>`;

@@ -93,7 +93,9 @@ function syncDevice() {
     fetch("/api/device", {
       method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
       body: JSON.stringify({ session: sid(), name: state.name || "", mascot: state.mascot || "", visited: state.visited || [],
-        season: SEASON, lifetimeFound: state.lifetimeFound || 0, seasonsPlayed: state.seasonsPlayed || 0 }),
+        season: SEASON, lifetimeFound: state.lifetimeFound || 0, seasonsPlayed: state.seasonsPlayed || 0,
+        // which prize they chose — the grown-up has to know what to go and hide
+        prize: state.prize ? (state.prize.label || state.prize.id || "") : "" }),
     }).catch(() => {});
   } catch {}
 }
@@ -123,7 +125,8 @@ function show(id) {
 }
 
 // ---------- Android/browser back button -> main menu (never leaves the app mid-quest) ----------
-const BACK_SUBS = ["stopModal", "passportModal", "guideModal", "finishModal", "scanAnim", "scanCam", "installModal"];
+const BACK_SUBS = ["stopModal", "passportModal", "guideModal", "finishModal", "scanAnim", "scanCam", "installModal",
+  "prizeModal", "prizePlaceModal"];
 function anyModalOpen() { return BACK_SUBS.some((id) => !$(id).classList.contains("hidden")); }
 function atMenuScreen() { return !$("home").classList.contains("hidden") && !anyModalOpen(); }
 function goMenu() {
@@ -306,6 +309,7 @@ function boot() {
       state.seasonsPlayed = (state.seasonsPlayed || 0) + 1;
       state.visited = [];
       state.season = SEASON;
+      state.prize = null;          // new hunt, new prize to win
       save();
     }
     applyGuide();
@@ -375,6 +379,8 @@ function goHome() {
     : "Out exploring? Scan a QR sticker at a park or school to stamp your passport! 🎯";
   refreshProgress();
   renderLifetime();
+  refreshPrizeButton();
+  warmPrizeImages();
   refreshInstallButton();
   maybePromptInstall();
 }
@@ -528,6 +534,7 @@ function finishArrival() {
   // the last one. The finish party used to jump in here instead, which on a one-stop
   // hunt meant the child never saw the card at all.
   partyAfterCard = pendingFirst && STOPS.length > 0 && foundCount() >= STOPS.length;
+  prizeAfterCard = pendingFirst && prizeUnlocked() && !prizeWon();
   pendingFirst = false;
   show("game");
   openStop(id);
@@ -538,8 +545,16 @@ function skipArrival() {
   pendingFirst = earnSticker(pendingStopId) || pendingFirst;
   finishArrival();
 }
-// The "you got them all" celebration, held back until they leave the stop card.
+// The celebration, held back until they leave the stop card. A prize outranks the
+// generic "you did it" card — it IS the payoff, and two party modals in a row is one
+// too many for a six-year-old.
 function maybeParty() {
+  if (prizeAfterCard) {
+    prizeAfterCard = false; partyAfterCard = false;
+    refreshPrizeButton();
+    openPrizePicker();
+    return;
+  }
   if (!partyAfterCard) return;
   partyAfterCard = false;
   finish();
@@ -1105,6 +1120,118 @@ try {
   window.addEventListener("pagehide", closeScanner);
 } catch {}
 
+// ---------- the prize ----------
+// A real thing, hidden somewhere real. Find enough stops and the child picks one of the
+// grown-up's photos; picking it reveals where to go and collect it. The pictures live
+// behind /api/prize and are only pulled when a prize is actually within one find, so a
+// hunt with no prize set up costs nothing.
+const PRIZE_KEY = "nq_prize";
+let PRIZE = null;
+let prizeAfterCard = false;
+let prizePick = null;                      // what they've tapped, before confirming
+
+const prizeOn = () => !!(PRIZE && PRIZE.enabled && PRIZE.prizes && PRIZE.prizes.length);
+const prizeUnlocked = () => prizeOn() && foundCount() >= (PRIZE.need || 4);
+const prizeWon = () => !!(state.prize && state.prize.id);
+const prizeImg = (id) => "/api/prize?img=" + encodeURIComponent(id);
+const prizeById = (id) => (prizeOn() ? PRIZE.prizes.find((p) => p.id === id) : null) || null;
+
+async function loadPrize() {
+  try { const c = JSON.parse(localStorage.getItem(PRIZE_KEY)); if (c) PRIZE = c; } catch {}
+  if (!online()) return;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+    const r = await fetch("/api/prize", { signal: ctrl.signal, cache: "no-store" });
+    clearTimeout(t);
+    if (r.ok) {
+      const c = await r.json();
+      if (c && typeof c === "object") {
+        PRIZE = c;
+        try { localStorage.setItem(PRIZE_KEY, JSON.stringify(c)); } catch {}
+      }
+    }
+  } catch { /* offline: whatever we cached last time */ }
+}
+
+// Pull the pictures into the browser's cache BEFORE the big moment, so the reveal isn't
+// five spinners on a weak signal. Only bothers once they're one find away.
+function warmPrizeImages() {
+  if (!prizeOn() || foundCount() < (PRIZE.need || 4) - 1) return;
+  const ids = PRIZE.prizes.map((p) => p.id).concat(PRIZE.place && PRIZE.place.img ? [PRIZE.place.img] : []);
+  ids.forEach((id) => { try { new Image().src = prizeImg(id); } catch {} });
+}
+
+function refreshPrizeButton() {
+  const b = $("btnPrize"); if (!b) return;
+  const show = prizeOn() && (prizeUnlocked() || prizeWon());
+  b.classList.toggle("hidden", !show);
+  if (show) $("btnPrizeText").textContent = prizeWon() ? "My prize" : "Pick your prize!";
+  b.classList.toggle("ready", show && !prizeWon());
+}
+
+// Tapping 🎁 on the home hub: back to the picker if they haven't chosen, otherwise
+// straight to "here's what you picked and where it is".
+function openPrize() {
+  if (!prizeOn()) return;
+  if (prizeWon()) { showPrizePlace(); return; }
+  if (prizeUnlocked()) openPrizePicker();
+}
+
+function openPrizePicker() {
+  armBack();
+  prizePick = null;
+  const grid = $("prizeGrid"); grid.innerHTML = "";
+  PRIZE.prizes.forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "prize-opt";
+    b.innerHTML = `<span class="po-shot" style="background-image:url('${prizeImg(p.id)}')"></span>` +
+      (p.label ? `<span class="po-name">${escapeText(p.label)}</span>` : "");
+    b.onclick = () => {
+      prizePick = p.id;
+      [...grid.children].forEach((c) => c.classList.toggle("sel", c === b));
+      const take = $("prizeTake");
+      take.disabled = false;
+      take.textContent = p.label ? `Yes — the ${p.label}! 🎉` : "Yes, this one! 🎉";
+    };
+    grid.appendChild(b);
+  });
+  $("prizeTake").disabled = true;
+  $("prizeTake").textContent = "Pick one first 👆";
+  $("prizeSub").textContent = `You found ${foundCount()} treasures — one of these is yours!`;
+  $("prizeModal").classList.remove("hidden");
+  bigConfetti();
+}
+
+function takePrize() {
+  if (!prizePick) return;
+  const p = prizeById(prizePick);
+  state.prize = { id: prizePick, label: (p && p.label) || "", ts: Date.now() };
+  save(); syncDevice();
+  logEvent("prize", null);
+  $("prizeModal").classList.add("hidden");
+  refreshPrizeButton();
+  showPrizePlace();
+}
+
+function showPrizePlace() {
+  armBack();
+  const p = prizeById(state.prize && state.prize.id);
+  const shot = $("prizePlaceShot");
+  $("prizePicked").innerHTML = p
+    ? `<span class="pp-shot" style="background-image:url('${prizeImg(p.id)}')"></span>` +
+      `<span class="pp-name">${escapeText(p.label || "Your prize")} is yours!</span>`
+    : "";
+  const place = (PRIZE && PRIZE.place) || {};
+  shot.classList.toggle("hidden", !place.img);
+  if (place.img) shot.style.backgroundImage = `url('${prizeImg(place.img)}')`;
+  $("prizePlaceText").textContent = place.text || "Ask a grown-up where to collect it!";
+  $("prizePlaceModal").classList.remove("hidden");
+  chime();
+}
+// belt and braces: the label comes from the grown-up's typing, so never trust it as HTML
+function escapeText(s) { return (s + "").replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m])); }
+
 // ---------- passport ----------
 function openPassport() {
   armBack();
@@ -1195,6 +1322,9 @@ $("btnMap").onclick = () => {
     : "You found them all! 🏆");
 };
 $("btnPassport").onclick = openPassport;
+$("btnPrize").onclick = openPrize;
+$("prizeTake").onclick = takePrize;
+$("prizePlaceDone").onclick = () => { $("prizePlaceModal").classList.add("hidden"); goHome(); };
 // Change Guide is also where you fix your name — it's the only "this is me" screen
 // after the first run, and a kid who typed "asdf" on day one shouldn't be stuck with it.
 $("btnChangeGuide").onclick = () => {
@@ -1347,6 +1477,9 @@ try {
 // ---------- start: load the hider's published cards, then boot ----------
 (async function start() {
   try { await loadConfig(); } catch { /* fall back to built-in STOPS */ }
+  // The cached prize is applied synchronously here; the fresh copy lands a beat later and
+  // never gates the map, a stamp, or the find animation.
+  loadPrize().then(() => { refreshPrizeButton(); warmPrizeImages(); });
   resolveArrival();
   boot();
 })();
