@@ -81,6 +81,8 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | `stats.html` | Live scan dashboard |
 | `api/config.js` | Stores/serves the hider's published cards (`nq:config`), and mints sticker codes for the print sheet that don't clash with any live card |
 | `api/prize.js` | The prize: its photos (`nq:prizeimg:<id>`, one per key) and its setup (`nq:prize`) |
+| `api/push.js` / `api/_lib/push.js` | Which phones get alerts (`nq:push`), and sending them — free web push, needs a VAPID keypair |
+| `push-toggle.js` | The "🔔 Alerts on this phone" switch, shared by both setup pages |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
 | `api/stats.js` | Returns aggregate stats for the dashboard (needs the code) |
 | `api/reset.js` | The "Start over" wipe — clears `nq:*` and resets to Season 1 |
@@ -165,15 +167,35 @@ dashboard's **Prize picked** column tells you which one to go and hide.
 A new season clears the claim, so the next hunt can win a prize again.
 
 ## Alerts: getting told, on your phone, for nothing
-`api/scan.js` tells you two things: **a sticker has been reported missing**, and **a child
-has just picked their prize**. The second is the urgent one — they're walking to the
-hiding place — so it goes out over every channel you've configured. All three are free.
+You're told two things: **a sticker has been reported missing**, and **a child has just
+picked their prize**. The second is the urgent one — they're already walking to the hiding
+place — so it goes out over every channel that's set up.
 
+### Phone notifications (the one to use)
+The same approach as Sparkle Quest's chore alerts: **web push**. No SMS service, nothing
+per message, and it lands on the lock screen like any other app.
+
+1. Generate a keypair on any computer: `npx web-push generate-vapid-keys`
+2. Vercel → Settings → **Environment Variables** → add `VAPID_PUBLIC_KEY` and
+   `VAPID_PRIVATE_KEY` (optionally `VAPID_SUBJECT`, a `mailto:` for the push services).
+   *The pair from another of your projects works fine — subscriptions belong to the
+   site's origin, not to the keys.*
+3. Redeploy, then on **your phone**: open `/setup.html` or `/setup-prize.html` → tap
+   **🔕 Alerts OFF on this phone — tap to turn on**. Repeat on any other phone that should
+   hear about it.
+
+Alerts are **per device**, behind the setup code, so only phones you tapped ever buzz —
+the kids' phones never do. Subscriptions live in `nq:push`; a phone that uninstalls or
+revokes permission is dropped automatically on the next send. **iPhone**: add the page to
+the Home Screen first and turn alerts on from there (Apple only allows web push in an
+installed app, iOS 16.4+). **Android**: works straight away.
+
+### The other three, if you'd rather
 | Env var | What you get |
 |---|---|
-| `RESEND_API_KEY` | **Email**, via [Resend](https://resend.com) over plain REST (no npm dependency). Free tier, no card. |
+| `RESEND_API_KEY` | **Email**, via [Resend](https://resend.com) over plain REST. Free tier, no card. |
 | `ALERT_SMS` | **A real text message**, free, by emailing your carrier's SMS gateway: `2535550123@tmomail.net` (T‑Mobile), `@vtext.com` (Verizon), `@txt.att.net` (AT&T). Needs `RESEND_API_KEY` too, since it *is* an email. Carriers filter these unpredictably — test it before relying on it. |
-| `NTFY_TOPIC` | **A push notification** via free [ntfy.sh](https://ntfy.sh) — install the app, subscribe to a topic only you know (`nq-9f3c2a`), put that name here. No account, no key, arrives in about a second, and it's the most reliable of the three. Anyone who knows the topic name can read it, so make it unguessable. `NTFY_HOST` points at a self-hosted one. |
+| `NTFY_TOPIC` | **A push notification** via free [ntfy.sh](https://ntfy.sh) — install the app, subscribe to a topic only you know (`nq-9f3c2a`), put that name here. No account, no key. Anyone who knows the topic name can read it, so make it unguessable. `NTFY_HOST` points at a self-hosted one. |
 
 Other optional vars: `ALERT_EMAIL` (recipient, defaults to `branskar01@gmail.com`) and
 `ALERT_FROM` (sender, defaults to Resend's shared `onboarding@resend.dev` — without a

@@ -7,6 +7,7 @@
 // Credentials are auto-injected by Vercel when you connect the Upstash store to this
 // project (KV_REST_API_URL / KV_REST_API_TOKEN). Nothing is hard-coded.
 import { Redis } from "@upstash/redis";
+import { pushToPhones, pushReady } from "./_lib/push.js";
 
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -61,8 +62,9 @@ async function sendMail(subject, text, to) {
   return `sent to ${dest}`;
 }
 
-// A push notification through ntfy.sh. Free, no account, arrives in about a second.
-async function sendPush(title, body) {
+// A push notification through ntfy.sh — an alternative to the phone alerts above for
+// anyone who'd rather subscribe in the ntfy app than turn on notifications here.
+async function sendNtfy(title, body) {
   if (!NTFY_TOPIC) return null;
   try {
     const r = await fetch(NTFY_HOST + "/" + encodeURIComponent(NTFY_TOPIC), {
@@ -77,36 +79,47 @@ async function sendPush(title, body) {
   }
 }
 
-// Fire every channel that's been configured and report on all of them. One working
-// channel is a success, so a missing Resend key doesn't hide a push that got through.
+// Fire every channel that's been set up and report on all of them. One working channel
+// is a success, so a missing Resend key doesn't hide a phone alert that got through.
+// Phone notifications come first: they're the ones that actually reach a pocket.
 async function notify(subject, long, short) {
   const bits = [];
   let ok = false;
+  const phones = await pushToPhones(subject, short || long, "nq-" + Date.now(), "./stats.html")
+    .catch((e) => "not sent — " + String((e && e.message) || e));
+  bits.push("phones: " + phones);
+  if (/^sent/.test(phones)) ok = true;
+
   const mail = await sendMail(subject, long);
   bits.push("email: " + mail);
   if (/^sent/.test(mail)) ok = true;
+
   if (ALERT_SMS) {
     const sms = await sendMail(subject, short || long, ALERT_SMS);
     bits.push("text: " + sms);
     if (/^sent/.test(sms)) ok = true;
   }
-  const push = await sendPush(subject, short || long);
-  if (push) {
-    bits.push("push: " + push);
-    if (/^sent/.test(push)) ok = true;
+  const ntfy = await sendNtfy(subject, short || long);
+  if (ntfy) {
+    bits.push("ntfy: " + ntfy);
+    if (/^sent/.test(ntfy)) ok = true;
   }
   return { ok, text: bits.join(" · ") };
 }
 
+// Is there anywhere to send an alert at all? Checked before the cooldown key is claimed,
+// so a project with nothing set up doesn't silently burn its one-per-12-hours slot.
+const anyChannel = () => !!(process.env.RESEND_API_KEY || NTFY_TOPIC || pushReady());
+
 async function alertMissingSticker(stop, stopName, stamped) {
-  if (!process.env.RESEND_API_KEY) return sendMail();   // returns the "no key" explanation
+  if (!anyChannel()) return "not sent — no alerts are set up on this project yet (see the README)";
   // NX+EX: the first report claims the key and sends; repeats inside the window no-op.
   const claimed = await redis.set(P + "alert:missing:" + stop, Date.now(), { nx: true, ex: ALERT_COOLDOWN_S });
-  if (!claimed) return "not sent — already emailed about this stop in the last 12 h";
+  if (!claimed) return "not sent — already alerted about this stop in the last 12 h";
 
   const where = stopName ? `${stopName} (stop ${stop})` : `Stop ${stop}`;
   const when = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
-  return sendMail(
+  const r = await notify(
     `🙈 QR sticker missing at ${stopName || "stop " + stop}`,
     `A player tapped "Sticker Missing? Report it!" — the QR sticker is missing or damaged.\n\n` +
     `Where: ${where}\nWhen:  ${when} (Pacific)\n\n` +
@@ -114,8 +127,10 @@ async function alertMissingSticker(stop, stopName, stamped) {
       ? `They were stamped automatically (their phone confirmed they were within ~150 m).\n`
       : `They were NOT stamped — they reported it from somewhere else, or had already found this stop.\n`) +
     `Reprint this one from setup.html and tape it back up.\n\n` +
-    `You won't get another email about this stop for 12 hours.`
+    `You won't get another alert about this stop for 12 hours.`,
+    `Sticker missing at ${stopName || "stop " + stop} — reprint it.`
   );
+  return r.text;
 }
 
 // ---- "a child just chose their prize" ----------------------------------------------

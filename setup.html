@@ -185,12 +185,18 @@
   </div>
 
   <div class="panel noprint">
-    <h2 style="margin-top:2px;">Missing-sticker emails</h2>
-    <p class="note" style="margin-top:0;">When a kid taps <b>🙈 Sticker Missing? Report it!</b> we email you so you can reprint that sign. Tap below to check the email actually works — it skips the one-per-stop-per-12-hours limit.</p>
+    <h2 style="margin-top:2px;">Alerts</h2>
+    <p class="note" style="margin-top:0;">A notification on your phone when a kid taps <b>🙈 Sticker Missing? Report it!</b> — or picks their prize. Free, and only phones where you tap this ever buzz.</p>
     <div class="toolbar">
+      <button id="pushBtn" class="big" disabled>🔔 Checking…</button>
+      <span id="pushStatus" class="status"></span>
+    </div>
+    <p id="pushHint" class="note"></p>
+    <div class="toolbar" style="margin-top:12px;">
       <button id="testMailBtn" class="ghost">🔔 Send me a test alert</button>
       <span id="mailStatus" class="status"></span>
     </div>
+    <p class="note">The test skips the one-per-stop-per-12-hours limit and reports what every channel did. Setup steps live on the <a href="setup-prize.html">🎁 Prize page</a>.</p>
   </div>
 
   <!-- the sheet lives last: on a phone in the park you want the card editor first, and
@@ -199,6 +205,7 @@
   <div id="grid" class="grid"></div>
 </div>
 
+<script src="push-toggle.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
   const DEFAULT_CODE = "8979";          // used offline; the live site checks ADMIN_CODE
@@ -224,6 +231,7 @@
     $("lock").classList.add("hidden");
     $("editor").classList.remove("hidden");
     initEditor();
+    initPushToggle({ btn: "pushBtn", status: "pushStatus", hint: "pushHint", code: () => SETUP_CODE });
     return true;
   }
   async function tryUnlock() {
