@@ -69,7 +69,7 @@ function localBump(event, stop) {
   localStorage.setItem("nq_stats", JSON.stringify(st));
 }
 function online() { return location.protocol === "http:" || location.protocol === "https:"; }
-function logEvent(event, stop) {
+function logEvent(event, stop, extra) {
   localBump(event, stop);
   if (online()) {
     const s = stop ? stopById(stop) : null;
@@ -78,8 +78,8 @@ function logEvent(event, stop) {
         method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
         // stopName rides along so a "sticker missing" alert email can name the spot
         // without the server having to re-read the published config
-        body: JSON.stringify({ session: sid(), stop: stop || null, event, mascot: state.mascot || null,
-          stopName: s ? s.name : null }),
+        body: JSON.stringify(Object.assign({ session: sid(), stop: stop || null, event, mascot: state.mascot || null,
+          stopName: s ? s.name : null }, extra || {})),
       }).catch(() => {});
     } catch {}
   }
@@ -1208,7 +1208,8 @@ function takePrize() {
   const p = prizeById(prizePick);
   state.prize = { id: prizePick, label: (p && p.label) || "", ts: Date.now() };
   save(); syncDevice();
-  logEvent("prize", null);
+  // the grown-up has minutes, not hours, to get the thing to the hiding place
+  logEvent("prize", null, { prize: (p && p.label) || prizePick, name: state.name || "" });
   $("prizeModal").classList.add("hidden");
   refreshPrizeButton();
   showPrizePlace();

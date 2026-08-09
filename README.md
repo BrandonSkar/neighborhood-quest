@@ -164,25 +164,33 @@ dashboard's **Prize picked** column tells you which one to go and hide.
 
 A new season clears the claim, so the next hunt can win a prize again.
 
-## Missing-sticker email alerts (optional)
-`api/scan.js` emails the hider when a child reports a sign is gone. It uses
-[Resend](https://resend.com) over plain REST — no extra npm dependency.
+## Alerts: getting told, on your phone, for nothing
+`api/scan.js` tells you two things: **a sticker has been reported missing**, and **a child
+has just picked their prize**. The second is the urgent one — they're walking to the
+hiding place — so it goes out over every channel you've configured. All three are free.
 
-1. Create a free Resend account and an **API key**.
-2. In Vercel → Settings → **Environment Variables**, add `RESEND_API_KEY`.
-3. Redeploy.
+| Env var | What you get |
+|---|---|
+| `RESEND_API_KEY` | **Email**, via [Resend](https://resend.com) over plain REST (no npm dependency). Free tier, no card. |
+| `ALERT_SMS` | **A real text message**, free, by emailing your carrier's SMS gateway: `2535550123@tmomail.net` (T‑Mobile), `@vtext.com` (Verizon), `@txt.att.net` (AT&T). Needs `RESEND_API_KEY` too, since it *is* an email. Carriers filter these unpredictably — test it before relying on it. |
+| `NTFY_TOPIC` | **A push notification** via free [ntfy.sh](https://ntfy.sh) — install the app, subscribe to a topic only you know (`nq-9f3c2a`), put that name here. No account, no key, arrives in about a second, and it's the most reliable of the three. Anyone who knows the topic name can read it, so make it unguessable. `NTFY_HOST` points at a self-hosted one. |
 
-Optional: `ALERT_EMAIL` (recipient, defaults to `branskar01@gmail.com`) and `ALERT_FROM`
-(sender, defaults to Resend's shared `onboarding@resend.dev`). Without a verified domain,
-Resend only delivers to your own account address. **Without `RESEND_API_KEY` no alert is
-sent** — scans still log normally. One email per stop per 12 h, so a single broken sign
-can't flood your inbox.
+Other optional vars: `ALERT_EMAIL` (recipient, defaults to `branskar01@gmail.com`) and
+`ALERT_FROM` (sender, defaults to Resend's shared `onboarding@resend.dev` — without a
+verified domain Resend only delivers to your own account address).
 
-**No email showing up?** Open `/setup.html` and tap **🔔 Send me a test alert**. It skips
-the 12 h limit and reports back in plain English — missing API key, whatever Resend
-replied, or "sent to …". The three usual causes: the key was never added in Vercel, you
-already got an email about that stop within 12 h, or Resend's shared sender only delivers
-to the address that owns the Resend account.
+Set none of them and nothing is sent; scans still log normally and the app is unaffected.
+Missing-sticker alerts are one per stop per 12 h; prize alerts are one per child per 6 h,
+so a double-tap can't send twice. **Test buttons**: 🔔 *Send me a test alert* in
+`setup.html`, 🔔 *Test the prize alert* in `setup-prize.html` — both report, in plain
+English, exactly what each channel did.
+
+**Nothing showing up?** The test buttons skip the cooldown and say what happened. The
+usual causes: the key was never added in Vercel (or you didn't redeploy after adding it),
+you already got an alert about that stop within 12 h, Resend's shared sender only delivers
+to the address that owns the Resend account — or, for a text, your carrier silently
+dropped a message from an unknown sender. If texts prove flaky, use ntfy: it's the one
+that always arrives.
 
 ## Your two private pages
 `/setup.html` (cards, pins, questions, printing) and `/stats.html` (the dashboard) both

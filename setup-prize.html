@@ -124,6 +124,24 @@
     </div>
   </div>
 
+  <div class="panel">
+    <h2 style="margin-top:2px;">5. Getting told the moment they pick</h2>
+    <p class="note" style="margin-top:0;">They'll walk straight to the hiding place, so you want to hear about this in seconds. Set up any of these in <b>Vercel → Settings → Environment Variables</b>, then redeploy. They all cost nothing.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:10px;">
+      <tr><td style="padding:7px 8px 7px 0;white-space:nowrap;"><b>Email</b></td>
+        <td style="padding:7px 0;"><code>RESEND_API_KEY</code> — the one the missing-sticker alerts already use.</td></tr>
+      <tr><td style="padding:7px 8px 7px 0;white-space:nowrap;"><b>A real text</b></td>
+        <td style="padding:7px 0;"><code>ALERT_SMS</code> — your number at your carrier's email-to-text gateway, e.g. <code>2535550123@tmomail.net</code> (T‑Mobile), <code>@vtext.com</code> (Verizon), <code>@txt.att.net</code> (AT&amp;T). Free, but carriers block these sometimes — test it.</td></tr>
+      <tr><td style="padding:7px 8px 7px 0;white-space:nowrap;"><b>Push</b></td>
+        <td style="padding:7px 0;"><code>NTFY_TOPIC</code> — install the free <b>ntfy</b> app, subscribe to a topic only you know (e.g. <code>nq-9f3c2a</code>), and put that name here. No account, arrives in about a second. Most reliable of the three.</td></tr>
+    </table>
+    <div class="toolbar" style="margin-top:12px;">
+      <button id="testBtn" class="ghost">🔔 Test the prize alert</button>
+      <span id="testStatus" class="status"></span>
+    </div>
+    <p class="note">Sends a pretend "someone picked a prize" through every channel you've set up, and tells you exactly what each one did.</p>
+  </div>
+
   <div class="panel danger-zone" style="border-color:#ffc9cf;background:#fffafa;">
     <h2 style="margin-top:2px;">Start the prize over</h2>
     <p class="note" style="margin-top:0;">Clears the pictures and the address from the database. The cards, pins and stamps are untouched.</p>
@@ -407,6 +425,26 @@
     } catch { setWipe("Couldn't reach the server.", "err"); }
   };
   function setWipe(t, cls) { const s = $("wipeStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+
+  // ---- does the alert actually reach me? ----
+  $("testBtn").onclick = async () => {
+    const btn = $("testBtn"); btn.disabled = true;
+    setTest("Sending…", "");
+    try {
+      const r = await fetch("/api/scan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, test: "prize" }),
+      });
+      const j = await r.json().catch(() => ({}));
+      const msg = j.alert || j.error || j.note || "No answer from the server.";
+      const good = typeof j.alertOk === "boolean" ? j.alertOk : /^sent/.test(msg);
+      setTest((good ? "✅ " : "⚠️ ") + msg, good ? "ok" : "err");
+    } catch {
+      setTest("⚠️ Couldn't reach the server — open this page on the live site.", "err");
+    }
+    btn.disabled = false;
+  };
+  function setTest(t, cls) { const s = $("testStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
 
   function escapeAttr(s){return (s+"").replace(/[&<>"]/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
 </script>
