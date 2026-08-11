@@ -8,11 +8,20 @@
 // Needs: a service worker on this origin (registered here if the game hasn't been opened
 // on this phone yet) and a VAPID keypair on the server (see api/_lib/push.js).
 (function () {
-  // base64url public key -> the bytes pushManager.subscribe wants
+  // base64url public key -> the bytes pushManager.subscribe wants.
+  // Whitespace is stripped first: a key pasted into a hosting dashboard often arrives
+  // with a stray newline or a wrap, and atob() throws on those with a error message
+  // that tells you nothing about what actually went wrong.
   function b64ToBytes(s) {
-    const pad = "=".repeat((4 - (s.length % 4)) % 4);
-    const raw = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
-    return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    const clean = (s || "").replace(/\s+/g, "");
+    const pad = "=".repeat((4 - (clean.length % 4)) % 4);
+    let raw;
+    try { raw = atob((clean + pad).replace(/-/g, "+").replace(/_/g, "/")); }
+    catch { throw new Error("VAPID_PUBLIC_KEY isn't valid base64 — re-copy it into Vercel (no spaces or line breaks)"); }
+    const bytes = Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    // an uncompressed P-256 point: 0x04 + 32 bytes X + 32 bytes Y
+    if (bytes.length !== 65) throw new Error(`VAPID_PUBLIC_KEY is ${bytes.length} bytes, not 65 — it looks like the wrong key was pasted (the public one is the long 87-character string)`);
+    return bytes;
   }
   const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
   const standalone = () => {
@@ -73,10 +82,20 @@
     paint(await reg.pushManager.getSubscription());
 
     btn.onclick = async () => {
+      // Ask for permission FIRST, before anything is awaited. Safari (and iOS in
+      // particular) only honours Notification.requestPermission() while the tap is still
+      // "live" — put an await in front of it and the prompt silently never appears,
+      // which looks exactly like a button that does nothing.
+      let perm = (window.Notification && Notification.permission) || "denied";
+      const already = perm === "granted";
+      let ask = null;
+      if (!already) { try { ask = Notification.requestPermission(); } catch (e) { ask = Promise.reject(e); } }
+
       btn.disabled = true;
+      btn.textContent = "⏳ Asking your phone…";
       try {
         let sub = await reg.pushManager.getSubscription();
-        if (sub) {
+        if (sub) {                                   // already on -> turn it off
           const r = await fetch("/api/push", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code: opts.code(), action: "unsubscribe", endpoint: sub.endpoint }),
@@ -87,13 +106,28 @@
           paint(null, j.phones);
           return;
         }
-        const perm = await Notification.requestPermission();
+
+        if (!already) perm = await ask;
         if (perm !== "granted") {
-          tip("Notifications are blocked for this site — allow them in the phone's settings, then try again.");
+          tip(perm === "denied"
+            ? "This phone is set to block notifications from this site. Turn them back on in Settings → Notifications (or the padlock in the address bar), then tap again."
+            : "The phone didn't answer the permission question." +
+              (isIOS() && !standalone() ? " On iPhone this only works from the app added to your Home Screen — open it from there and try again." : " Try tapping once more."));
           paint(null);
           return;
         }
-        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(info.publicKey) });
+
+        try {
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(info.publicKey) });
+        } catch (e) {
+          // a subscription left over from a different key can't be reused — clear it out
+          if (e && e.name === "InvalidStateError") {
+            const old = await reg.pushManager.getSubscription();
+            if (old) await old.unsubscribe().catch(() => {});
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(info.publicKey) });
+          } else throw e;
+        }
+
         const r = await fetch("/api/push", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: opts.code(), action: "subscribe", sub: sub.toJSON() }),
@@ -103,7 +137,15 @@
         tip("This phone gets alerts now. Do the same on any other phone that should hear about it.");
         paint(sub, j.phones);
       } catch (e) {
-        tip("Hmm, that didn't work — check the connection and try again.");
+        // Say what actually broke. "Something went wrong" on a phone with no console is
+        // the difference between a two-minute fix and giving up on the feature.
+        const name = (e && e.name) || "Error";
+        const msg = (e && e.message) || String(e);
+        tip(name === "NotAllowedError"
+          ? "The phone refused the subscription — check notifications are allowed for this site, then tap again."
+          : name === "AbortError"
+            ? "Your phone couldn't reach its notification service (this is common on a weak or filtered network). Try again on wifi."
+            : `Didn't work — ${name}: ${msg}`);
         paint(await reg.pushManager.getSubscription().catch(() => null));
       }
     };
