@@ -70,7 +70,7 @@ async function sendNtfy(title, body) {
     const r = await fetch(NTFY_HOST + "/" + encodeURIComponent(NTFY_TOPIC), {
       method: "POST",
       // HTTP headers must be plain ASCII, so the emoji goes in Tags, not Title
-      headers: { Title: title.replace(/[^\x20-\x7E]/g, "").trim() || "Neighborhood Quest", Priority: "high", Tags: "gift" },
+      headers: { Title: title.replace(/[^\x20-\x7E]/g, "").trim() || "Neighborhood Quest", Priority: "high", Tags: "mag" },
       body,
     });
     return r.ok ? `sent to ${NTFY_HOST.replace(/^https?:\/\//, "")}/${NTFY_TOPIC}` : `not sent — ntfy replied ${r.status}`;
@@ -133,32 +133,37 @@ async function alertMissingSticker(stop, stopName, stamped) {
   return r.text;
 }
 
-// ---- "a child just chose their prize" ----------------------------------------------
-// This is the one alert that's genuinely time-critical: they're about to walk to the
-// hiding place, and somebody has to have put the thing there.
-async function alertPrize(name, prize, session) {
-  // one alert per device per prize — a double-tap or a retried request must not resend
-  const claimed = await redis.set(P + "alert:prize:" + (session || "anon"), Date.now(), { nx: true, ex: 6 * 60 * 60 });
-  if (!claimed) return { ok: true, text: "not sent — already alerted about this player in the last 6 h" };
+// ---- "a sticker just got scanned" ---------------------------------------------------
+// One of these every time a child finds a stop — by camera or by typing the code, which
+// both land in arriveAtStop() and log the same "scan". The hunt reads like a commentary
+// from the sofa: who it was, which sticker, and how far through they are. It's the chatty
+// alert — every channel that's set up gets one per scan, so with email or a text gateway
+// turned on that's one apiece, every time.
+const SCAN_COOLDOWN_S = 60 * 60; // per device per STOP, so every new find still buzzes:
+                                 // it only silences the same child at the same sticker,
+                                 // which is a refresh or a retry, not a new find
 
-  let where = "";
-  try {
-    const cfg = await redis.get(P + "prize");
-    if (cfg && cfg.place && cfg.place.text) where = cfg.place.text.toString();
-  } catch { /* the alert matters more than the address */ }
+async function alertScan(stop, stopName, session, name, found, total) {
+  if (!anyChannel()) return "not sent — no alerts are set up on this project yet (see the README)";
+  const claimed = await redis.set(P + "alert:scan:" + (session || "anon") + ":" + stop, Date.now(), { nx: true, ex: SCAN_COOLDOWN_S });
+  if (!claimed) return "not sent — already alerted about this player at this stop in the last hour";
 
-  const who = name ? name : "A player";
-  const what = prize || "a prize";
+  const who = name || "Someone";
+  const where = stopName || "stop " + stop;
   const when = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
-  return notify(
-    `🎁 ${who} picked: ${what}`,
-    `${who} just finished enough of the hunt to choose a prize, and picked:\n\n` +
-    `    ${what}\n\n` +
-    `They've been shown where to collect it${where ? `:\n\n    ${where}\n` : "."}\n\n` +
+  // "3 of 4" is also the prize warning: the last one or two mean a child is about to be
+  // shown the hiding place, and something had better be in it.
+  const progress = total ? `${found} of ${total}` : found ? `${found} found` : "";
+  const r = await notify(
+    `🔍 ${who} found ${where}` + (progress ? ` (${progress})` : ""),
+    `${who} just scanned the sticker at:\n\n` +
+    `    ${stopName ? `${stopName} (stop ${stop})` : `Stop ${stop}`}\n\n` +
+    (progress ? `Treasures so far: ${progress}\n` : "") +
     `Time: ${when} (Pacific)\n\n` +
-    `Go and put it there now — they're on their way.`,
-    `${who} picked the ${what}! Put it out now.`
+    `Who's where, and which prize they've picked, is on the dashboard: stats.html`,
+    `${who} found ${where}` + (progress ? ` — ${progress}.` : ".")
   );
+  return r.text;
 }
 
 export default async function handler(req, res) {
@@ -171,19 +176,22 @@ export default async function handler(req, res) {
     if (b.test) {
       if ((b.code || "").toString() !== SETUP_CODE) { res.status(403).json({ error: "Wrong setup code." }); return; }
       const when = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
-      const prize = b.test === "prize";
+      // setup.html sends `test: true`; anything else is the scan test on setup-prize.html
+      // (including the "prize" a stale, cached copy of that page still sends)
+      const scan = b.test !== true;
       const r = await notify(
-        prize ? "🎁 Test — a prize was picked" : "✅ Neighborhood Quest — test alert",
-        prize
-          ? `This is the "Test the prize alert" button in setup-prize.html.\n\n` +
-            `If you're reading this, you'll be told the moment a child picks their prize —\n` +
-            `by whichever of email / text / push you've set up.\n\n` +
+        scan ? "🔍 Test — a sticker was scanned" : "✅ Neighborhood Quest — test alert",
+        scan
+          ? `This is the "Send a test alert" button in setup-prize.html.\n\n` +
+            `If you're reading this, you'll hear about every sticker a child scans — who\n` +
+            `it was, which spot, and how many treasures they have — by whichever of\n` +
+            `push / email / text you've set up.\n\n` +
             `Sent: ${when} (Pacific)`
           : `This is the "Send me a test alert" button in setup.html.\n\n` +
             `If you're reading this, missing-sticker alerts are working: when a kid taps\n` +
             `"🙈 Sticker Missing? Report it!" you'll get one just like it, naming the spot.\n\n` +
             `Sent: ${when} (Pacific)`,
-        prize ? "Test: a child picked their prize." : "Test: a sticker was reported missing."
+        scan ? "Test: a child scanned a sticker." : "Test: a sticker was reported missing."
       ).catch((e) => ({ ok: false, text: "not sent — " + String((e && e.message) || e) }));
       res.status(200).json({ ok: true, test: true, alert: r.text, alertOk: r.ok });
       return;
@@ -227,10 +235,12 @@ export default async function handler(req, res) {
       try { alert = await alertMissingSticker(stop, stopName, event === "sticker_missing"); }
       catch (e) { alert = "not sent — " + String((e && e.message) || e); }
     }
-    if (event === "prize") {
+    if (event === "scan" && stop != null) {
+      const stopName = b.stopName ? b.stopName.toString().slice(0, 60) : null;
       const name = b.name ? b.name.toString().slice(0, 40) : "";
-      const prize = b.prize ? b.prize.toString().slice(0, 40) : "";
-      try { alert = (await alertPrize(name, prize, session)).text; }
+      const found = Number.isFinite(b.found) ? b.found : null;
+      const total = Number.isFinite(b.total) ? b.total : null;
+      try { alert = await alertScan(stop, stopName, session, name, found, total); }
       catch (e) { alert = "not sent — " + String((e && e.message) || e); }
     }
 

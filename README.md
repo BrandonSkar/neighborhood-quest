@@ -70,7 +70,9 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   and on phones that can tell us (`getInstalledRelatedApps`), as soon as it's installed
   at all.
 - **Anonymous scan tracking** (no names, no location) via two serverless functions
-  backed by **Upstash Redis**, all keys namespaced under `nq:`.
+  backed by **Upstash Redis**, all keys namespaced under `nq:`. The *tally* is what's
+  anonymous: the scan alert that reaches your phone names the child, but nothing stored
+  against a scan does.
 
 ## Structure
 | Path | Purpose |
@@ -167,9 +169,19 @@ dashboard's **Prize picked** column tells you which one to go and hide.
 A new season clears the claim, so the next hunt can win a prize again.
 
 ## Alerts: getting told, on your phone, for nothing
-You're told two things: **a sticker has been reported missing**, and **a child has just
-picked their prize**. The second is the urgent one — they're already walking to the hiding
-place — so it goes out over every channel that's set up.
+You're told two things: **a sticker has just been scanned** — who found it, which spot,
+and how many treasures they have now — and **a sticker has been reported missing**. Both
+go out over every channel that's set up.
+
+The scan alert is the chatty one: one per find, per child — a code typed in by hand
+counts, since that stamps the stop exactly like a camera scan. It's also the prize warning —
+*"Ivy found Owl Tree (3 of 4)"* means somebody is one sticker away from being shown the
+hiding place, so put the thing there. The pick itself sends nothing; the dashboard's
+**Prize picked** column says which prize to take.
+
+Worth knowing before you switch on email or a text gateway: that's one message per scan
+as well, and a hunt with a few kids and eight stops adds up fast. Push (below) and ntfy
+are the two built for that volume.
 
 ### Phone notifications (the one to use)
 The same approach as Sparkle Quest's chore alerts: **web push**. No SMS service, nothing
@@ -202,10 +214,12 @@ Other optional vars: `ALERT_EMAIL` (recipient, defaults to `branskar01@gmail.com
 verified domain Resend only delivers to your own account address).
 
 Set none of them and nothing is sent; scans still log normally and the app is unaffected.
-Missing-sticker alerts are one per stop per 12 h; prize alerts are one per child per 6 h,
-so a double-tap can't send twice. **Test buttons**: 🔔 *Send me a test alert* in
-`setup.html`, 🔔 *Test the prize alert* in `setup-prize.html` — both report, in plain
-English, exactly what each channel did.
+Missing-sticker alerts are one per stop per 12 h; scan alerts are one per child per stop
+per hour, so a refresh or a retried request can't send the same find twice — a different
+child, or the same child at a different sticker, always buzzes straight away. **Test
+buttons**: 🔔 *Send me a test alert* in `setup.html` (the missing-sticker one), 🔔 *Send a
+test alert* in `setup-prize.html` (a scan) — both report, in plain English, exactly what
+each channel did.
 
 **Nothing showing up?** The test buttons skip the cooldown and say what happened. The
 usual causes: the key was never added in Vercel (or you didn't redeploy after adding it),

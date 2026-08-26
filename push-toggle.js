@@ -1,8 +1,8 @@
 // The "🔔 Alerts on this phone" switch, shared by setup.html and setup-prize.html.
 //
 // Alerts are per-DEVICE on purpose: a phone only gets them if someone turned them on
-// there, behind the setup code. That's how the grown-up's phone hears about a picked
-// prize while every child's phone stays quiet. The state lives in the browser's own
+// there, behind the setup code. That's how the grown-up's phone hears about every scan
+// while every child's phone stays quiet. The state lives in the browser's own
 // push subscription — there's nothing to remember and nothing to get out of step.
 //
 // Needs: a service worker on this origin (registered here if the game hasn't been opened

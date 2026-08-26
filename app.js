@@ -73,13 +73,18 @@ function logEvent(event, stop, extra) {
   localBump(event, stop);
   if (online()) {
     const s = stop ? stopById(stop) : null;
+    // A scan alert names the child and their running total. The stamp itself lands a
+    // moment later in startArrival(), so this find has to be counted by hand here.
+    const scanInfo = event === "scan"
+      ? { name: state.name || "", found: foundCount() + (s && !isFound(s) ? 1 : 0), total: STOPS.length }
+      : null;
     try {
       fetch("/api/scan", {
         method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
-        // stopName rides along so a "sticker missing" alert email can name the spot
+        // stopName rides along so a "sticker missing" or scan alert can name the spot
         // without the server having to re-read the published config
         body: JSON.stringify(Object.assign({ session: sid(), stop: stop || null, event, mascot: state.mascot || null,
-          stopName: s ? s.name : null }, extra || {})),
+          stopName: s ? s.name : null }, scanInfo || {}, extra || {})),
       }).catch(() => {});
     } catch {}
   }

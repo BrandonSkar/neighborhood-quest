@@ -125,8 +125,8 @@
   </div>
 
   <div class="panel">
-    <h2 style="margin-top:2px;">5. Getting told the moment they pick</h2>
-    <p class="note" style="margin-top:0;">They'll walk straight to the hiding place, so you want to hear about it in seconds. Same free phone notifications as Sparkle Quest's chore alerts — no SMS service, nothing per message.</p>
+    <h2 style="margin-top:2px;">5. Getting told as they play</h2>
+    <p class="note" style="margin-top:0;">A notification <b>every time a child scans a sticker</b> — who it was, which spot, and how many treasures they have now. The last one or two are your warning to go and hide the prize; the pick itself doesn't ping you, but the <a href="stats.html">dashboard</a>'s <b>Prize picked</b> column says which one to take. Same free phone notifications as Sparkle Quest's chore alerts — no SMS service, nothing per message.</p>
     <div class="toolbar" style="margin-top:12px;">
       <button id="pushBtn" class="big" disabled>🔔 Checking…</button>
       <span id="pushStatus" class="status"></span>
@@ -444,7 +444,7 @@
     try {
       const r = await fetch("/api/scan", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: SETUP_CODE, test: "prize" }),
+        body: JSON.stringify({ code: SETUP_CODE, test: "scan" }),
       });
       const j = await r.json().catch(() => ({}));
       const msg = j.alert || j.error || j.note || "No answer from the server.";

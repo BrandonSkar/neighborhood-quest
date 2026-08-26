@@ -32,7 +32,7 @@ self.addEventListener("activate", (e) => {
 });
 
 // Alerts for the grown-up: the server pushes { title, body, tag, url } when a child
-// picks a prize or reports a missing sticker. Only phones that opted in from the
+// scans a sticker or reports one missing. Only phones that opted in from the
 // setup pages are subscribed, so a kid's phone never buzzes.
 self.addEventListener("push", (e) => {
   let d = {};
