@@ -190,6 +190,17 @@ are the two built for that volume.
 The same approach as Sparkle Quest's chore alerts: **web push**. No SMS service, nothing
 per message, and it lands on the lock screen like any other app.
 
+They **buzz and make a sound**: `sw.js` asks for a double-buzz pattern, marks the alert
+non-silent, and sets `renotify` so a second find re-alerts instead of quietly replacing
+the first. **Android** honours the pattern. **iPhone** ignores it and uses the phone's own
+alert style for the installed app (Settings → Notifications → Quest), which is Apple's
+call, not something a web app can override. Either way the phone's own switches win: a
+site muted in Chrome's notification settings, or a Focus mode, still silences it.
+
+Changing any of that ships in the service worker, and the *old* worker keeps handling
+pushes until it's replaced — so after a deploy, open the installed app once on each phone
+to pick up the new one.
+
 1. Generate a keypair on any computer: `npx web-push generate-vapid-keys`
 2. Vercel → Settings → **Environment Variables** → add `VAPID_PUBLIC_KEY` and
    `VAPID_PRIVATE_KEY` (optionally `VAPID_SUBJECT`, a `mailto:` for the push services).

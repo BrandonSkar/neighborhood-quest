@@ -44,6 +44,14 @@ self.addEventListener("push", (e) => {
     // the white-on-transparent pin — a full-colour icon renders as a white square.
     badge: "./badge-96.png",
     tag: d.tag || "nq-alert",
+    // Buzz and make a noise — this is meant to be noticed from another room.
+    // vibrate is Android's (iOS ignores it and uses the phone's own alert style);
+    // silent:false is the default, set here so nothing can quietly mute it. renotify
+    // means a fresh alert re-buzzes rather than replacing an unread one in silence,
+    // which matters when several finds land close together.
+    vibrate: [180, 90, 180, 90, 300],
+    silent: false,
+    renotify: true,
     data: { url: d.url || "./stats.html" },
   }));
 });
