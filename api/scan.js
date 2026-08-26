@@ -111,16 +111,36 @@ async function notify(subject, long, short) {
 // so a project with nothing set up doesn't silently burn its one-per-12-hours slot.
 const anyChannel = () => !!(process.env.RESEND_API_KEY || NTFY_TOPIC || pushReady());
 
+// ---- naming the sticker -------------------------------------------------------------
+// An alert should say "🏀 Basketball court", never "stop 3". The app sends the card's
+// name with the event, but a phone running an app.js that's been sitting in its cache
+// since before that was added sends nothing, so fall back to the published cards.
+//
+// A stop's id is its POSITION in that list — see nqNormalizeStop() in data.js, which
+// numbers only the cards that have both a name and a pin, so the same filter has to be
+// applied here or the numbering slides.
+async function stopLabel(stop, stopName) {
+  try {
+    const cfg = await redis.get(P + "config");
+    const live = (cfg && Array.isArray(cfg.stops) ? cfg.stops : [])
+      .filter((s) => s && (s.name || "").toString().trim() && Array.isArray(s.ll) && s.ll.length === 2);
+    const s = live[stop - 1];
+    if (s && s.name) return ((s.emoji ? s.emoji + " " : "") + s.name).trim();
+  } catch { /* a vaguer alert beats no alert */ }
+  return stopName || "stop " + stop;
+}
+
 async function alertMissingSticker(stop, stopName, stamped) {
   if (!anyChannel()) return "not sent — no alerts are set up on this project yet (see the README)";
   // NX+EX: the first report claims the key and sends; repeats inside the window no-op.
   const claimed = await redis.set(P + "alert:missing:" + stop, Date.now(), { nx: true, ex: ALERT_COOLDOWN_S });
   if (!claimed) return "not sent — already alerted about this stop in the last 12 h";
 
-  const where = stopName ? `${stopName} (stop ${stop})` : `Stop ${stop}`;
+  const label = await stopLabel(stop, stopName);
+  const where = `${label} (stop ${stop})`;
   const when = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
   const r = await notify(
-    `🙈 QR sticker missing at ${stopName || "stop " + stop}`,
+    `🙈 QR sticker missing at ${label}`,
     `A player tapped "Sticker Missing? Report it!" — the QR sticker is missing or damaged.\n\n` +
     `Where: ${where}\nWhen:  ${when} (Pacific)\n\n` +
     (stamped
@@ -128,7 +148,7 @@ async function alertMissingSticker(stop, stopName, stamped) {
       : `They were NOT stamped — they reported it from somewhere else, or had already found this stop.\n`) +
     `Reprint this one from setup.html and tape it back up.\n\n` +
     `You won't get another alert about this stop for 12 hours.`,
-    `Sticker missing at ${stopName || "stop " + stop} — reprint it.`
+    `Sticker missing at ${label} — reprint it.`
   );
   return r.text;
 }
@@ -149,7 +169,7 @@ async function alertScan(stop, stopName, session, name, found, total) {
   if (!claimed) return "not sent — already alerted about this player at this stop in the last hour";
 
   const who = name || "Someone";
-  const where = stopName || "stop " + stop;
+  const where = await stopLabel(stop, stopName);
   const when = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
   // "3 of 4" is also the prize warning: the last one or two mean a child is about to be
   // shown the hiding place, and something had better be in it.
@@ -157,7 +177,7 @@ async function alertScan(stop, stopName, session, name, found, total) {
   const r = await notify(
     `🔍 ${who} found ${where}` + (progress ? ` (${progress})` : ""),
     `${who} just scanned the sticker at:\n\n` +
-    `    ${stopName ? `${stopName} (stop ${stop})` : `Stop ${stop}`}\n\n` +
+    `    ${where} (stop ${stop})\n\n` +
     (progress ? `Treasures so far: ${progress}\n` : "") +
     `Time: ${when} (Pacific)\n\n` +
     `Who's where, and which prize they've picked, is on the dashboard: stats.html`,

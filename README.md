@@ -80,7 +80,7 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | `index.html` / `app.js` / `styles.css` / `data.js` | The game (`data.js` holds the built-in/offline default stops) |
 | `setup.html` | **Hider-only, code-locked (8979)**: print a 3×3 sheet of blank stickers, then add each one by its code once it's taped up — pin, name, picture, question — and publish |
 | `setup-prize.html` | **Hider-only**: photograph the prizes and the hiding place, set how many finds unlock them, and write where to collect |
-| `stats.html` | Live scan dashboard |
+| `stats.html` | Live dashboard: players and their progress, scans per stop, and a **Recent activity** feed of every event — a find, an app open, a prize pick — in plain English |
 | `api/config.js` | Stores/serves the hider's published cards (`nq:config`), and mints sticker codes for the print sheet that don't clash with any live card |
 | `api/prize.js` | The prize: its photos (`nq:prizeimg:<id>`, one per key) and its setup (`nq:prize`) |
 | `api/push.js` / `api/_lib/push.js` | Which phones get alerts (`nq:push`), and sending them — free web push, needs a VAPID keypair |
@@ -174,7 +174,10 @@ and how many treasures they have now — and **a sticker has been reported missi
 go out over every channel that's set up.
 
 The scan alert is the chatty one: one per find, per child — a code typed in by hand
-counts, since that stamps the stop exactly like a camera scan. It's also the prize warning —
+counts, since that stamps the stop exactly like a camera scan. Every alert names the
+sticker the way your card does (*"🏀 Basketball court"*): the app sends the name it's
+showing, and the server falls back to the published cards, so a phone running a long-
+cached `app.js` still gets a named alert instead of "stop 3". It's also the prize warning —
 *"Ivy found Owl Tree (3 of 4)"* means somebody is one sticker away from being shown the
 hiding place, so put the thing there. The pick itself sends nothing; the dashboard's
 **Prize picked** column says which prize to take.

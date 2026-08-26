@@ -95,8 +95,8 @@
   </div>
 
   <div class="panel" id="recentPanel" style="display:none;">
-    <h2>Recent scans</h2>
-    <table><thead><tr><th>When</th><th>Stop</th><th>Event</th><th>Guide</th></tr></thead>
+    <h2>Recent activity</h2>
+    <table><thead><tr><th>When</th><th>Sticker</th><th>What happened</th><th>Guide</th></tr></thead>
     <tbody id="recent"></tbody></table>
   </div>
 
@@ -105,6 +105,15 @@
 
 <script src="data.js"></script>
 <script>
+const EVENTS = {
+  scan: "🔍 found the sticker",
+  home: "🏠 opened the app",
+  complete: "🏁 finished the quest",
+  prize: "🎁 picked a prize",
+  sticker_missing: "🙈 reported it missing (stamped anyway)",
+  sticker_report: "🙈 reported it missing",
+};
+const eventLabel = (e) => EVENTS[e] || e;
 const stopName = (id) => { const s = STOPS.find(s=>s.id==id); return s ? s.emoji+" "+s.name : "Stop "+id; };
 const mascotName = (id) => { const m = MASCOTS.find(m=>m.id==id); return m ? m.emoji+" "+m.name : id; };
 const mascotEmoji = (id) => { const m = MASCOTS.find(m=>m.id==id); return m ? m.emoji : "🙂"; };
@@ -171,8 +180,9 @@ function render(d, live){
   if(d.recent && d.recent.length){
     document.getElementById("recentPanel").style.display="";
     document.getElementById("recent").innerHTML = d.recent.map(r=>
-      `<tr><td>${new Date(r.ts).toLocaleString()}</td><td>${r.stop_id?stopName(r.stop_id):'—'}</td>
-       <td>${r.event}</td><td>${r.mascot?mascotName(r.mascot):'—'}</td></tr>`).join("");
+      `<tr><td>${new Date(r.ts).toLocaleString()}</td>
+       <td>${r.stop_id?stopName(r.stop_id):'<span class="muted">no sticker</span>'}</td>
+       <td>${eventLabel(r.event)}</td><td>${r.mascot?mascotName(r.mascot):'<span class="muted">not chosen yet</span>'}</td></tr>`).join("");
   }
   document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString();
   document.getElementById("footnote").textContent = live
