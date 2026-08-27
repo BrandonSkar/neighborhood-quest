@@ -89,7 +89,8 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | `api/stats.js` | Returns aggregate stats for the dashboard (needs the code) |
 | `api/reset.js` | The "Start over" wipe — clears `nq:*` and resets to Season 1 |
 | `vendor/` | Bundled Leaflet (map) + jsQR (in-app sticker scanner) — no CDN at runtime |
-| `manifest.webmanifest` / `sw.js` / `icon-*.png` | PWA install + offline |
+| `manifest.webmanifest` / `sw.js` / `icon-*.png` | PWA install + offline for the kids' game |
+| `setup.webmanifest` | Installs the hider's pages as their own app, **Quest Setup**, apart from the game |
 | `scripts/dev.mjs` | Local server for your PC — serves these files, proxies `/api/*` to the live site |
 | `scripts/` | Icon generator, Redis migration helper, `reset-nq.mjs` wipe |
 
@@ -209,6 +210,14 @@ to pick up the new one.
 3. Redeploy, then on **your phone**: open `/setup.html` or `/setup-prize.html` → tap
    **🔕 Alerts OFF on this phone — tap to turn on**. Repeat on any other phone that should
    hear about it.
+
+**Install the setup page as its own app.** The hider's pages carry their own
+`setup.webmanifest` — **Quest Setup**, `start_url` `./setup.html` — so they install
+separately from the kids' game and you never need the game on your phone. **iPhone**:
+Safari → Share → *Add to Home Screen*; Apple allows notifications only inside an
+installed app, so this step is required, not cosmetic (iOS 16.4+). **Android**: Chrome ⋮ →
+*Install app*. If Chrome offers only *Create shortcut*, it isn't seeing the manifest —
+you're on a stale cached copy of the page, or looking at a page that doesn't link one.
 
 Alerts are **per device**, behind the setup code, so only phones you tapped ever buzz —
 the kids' phones never do. Subscriptions live in `nq:push`; a phone that uninstalls or

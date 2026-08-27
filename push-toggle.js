@@ -23,6 +23,15 @@
     if (bytes.length !== 65) throw new Error(`VAPID_PUBLIC_KEY is ${bytes.length} bytes, not 65 — it looks like the wrong key was pasted (the public one is the long 87-character string)`);
     return bytes;
   }
+  // Register the worker as the page loads, not only when the switch is tapped: Chrome
+  // wants a service worker before it will offer "Install app" instead of a bare
+  // shortcut, and an installed app is what iPhone requires before it allows alerts.
+  try {
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+    }
+  } catch { /* an un-installable page still works, it just can't buzz on iPhone */ }
+
   const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
   const standalone = () => {
     try { return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; }
