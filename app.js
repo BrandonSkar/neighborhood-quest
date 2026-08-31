@@ -180,6 +180,7 @@ function deleteMyData() {
 // ---------- screen manager ----------
 function show(id) {
   ["picker", "home", "game"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
+  placeInstallBar();   // it sits in the page on the picker, fixed to the bottom elsewhere
   if (id === "game") { showMap(); armBack(); }
 }
 
@@ -1729,11 +1730,29 @@ function isStandalone() {
 function isIOS() {
   try { return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; } catch { return false; }
 }
+// The bar is fixed to the bottom of the screen everywhere — except on the mascot picker,
+// where that put it straight on top of "Let's Go!" and a child couldn't start at all.
+// (beforeinstallprompt fires the moment Chrome decides it's ready, which on a fresh
+// phone is while the picker is still up.) There it moves into the page instead, above
+// the buddies, so nothing anyone needs to tap is ever underneath it.
+function placeInstallBar() {
+  const bar = $("installBar");
+  if (!$("picker").classList.contains("hidden")) {
+    const inner = document.querySelector(".picker-inner");
+    if (inner && bar.parentNode !== inner) inner.insertBefore(bar, $("mascotGrid"));
+    bar.classList.add("inline");
+  } else {
+    if (bar.parentNode !== document.body) document.body.appendChild(bar);
+    bar.classList.remove("inline");
+  }
+}
+
 function maybePromptInstall() {
   try {
     if (isStandalone()) return;                              // already installed
     if (localStorage.getItem("nq_installDismissed")) return; // said "not now"
     const bar = $("installBar");
+    placeInstallBar();
     if (deferredPrompt) {                          // Android/Chrome — real one-tap install
       $("installText").textContent = "Add Lakeland Quest to your home screen!";
       $("installAdd").style.display = "";

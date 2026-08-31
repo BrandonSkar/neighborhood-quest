@@ -501,6 +501,10 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
   font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;box-shadow:var(--shadow);}
 .install-bar .ib-btn:active{transform:translateY(2px);}
 .install-bar .ib-x{background:none;border:none;font-size:18px;color:#b0a48c;cursor:pointer;padding:4px 6px;}
+/* On the mascot picker it joins the page above the buddies instead of floating over
+   "Let's Go!", which it used to cover completely on a phone. */
+.install-bar.inline{position:static;left:auto;right:auto;bottom:auto;width:100%;
+  margin:0 auto 18px;box-shadow:0 6px 0 rgba(0,0,0,.12);animation:pop .3s cubic-bezier(.2,1.4,.4,1);}
 
 /* ---------- Confetti ---------- */
 #confetti{position:fixed;inset:0;pointer-events:none;z-index:45;}
