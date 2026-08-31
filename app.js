@@ -54,6 +54,27 @@ function resolveArrival() {
   else if (!isNaN(stopParam) && stopById(stopParam)) arrivalStopId = stopParam;
 }
 
+// This page load came from a sticker, whether or not the code matched a card yet. The
+// service-worker auto-reload at the bottom sits out the whole life of such a page: a
+// find animation and its stamp must never be interrupted, and a fresh deploy lands on
+// the next open anyway.
+const fromSticker = !!codeParam || !isNaN(stopParam);
+
+// The code has done its job the moment the arrival resolves, so take it back out of the
+// address bar. Left there it re-fires logEvent("scan") on every later reload of the same
+// URL — a pull-to-refresh, a restored tab, the service worker taking over — which is why
+// one real scan could be tallied twice. An UNRESOLVED code stays put: the published cards
+// may simply not have loaded yet, and a reload is that scan's second chance.
+function consumeArrivalParam() {
+  if (arrivalStopId == null) return;
+  try {
+    const u = new URL(location.href);
+    u.searchParams.delete("c");
+    u.searchParams.delete("stop");
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+  } catch { /* very old browser: a duplicate tally beats a broken load */ }
+}
+
 // ---------- anonymous scan tracking (no personal data) ----------
 function sid() {
   let s = localStorage.getItem("nq_sid");
@@ -1473,9 +1494,13 @@ try {
     navigator.serviceWorker.register("sw.js").catch(() => {});
     // when a newly-deployed service worker takes over, reload once so the fresh
     // version shows up automatically (no manual cache-clearing needed).
+    // ...but not on a page opened from a sticker. sw.js claims its clients as soon as it
+    // activates, so this fires on a phone's FIRST visit and after every deploy — exactly
+    // when a child is standing at a QR code — and the reload would replay the arrival and
+    // log the same find twice.
     let reloaded = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloaded) return; reloaded = true; location.reload();
+      if (reloaded || fromSticker) return; reloaded = true; location.reload();
     });
   }
 } catch {}
@@ -1487,5 +1512,6 @@ try {
   // never gates the map, a stamp, or the find animation.
   loadPrize().then(() => { refreshPrizeButton(); warmPrizeImages(); });
   resolveArrival();
+  consumeArrivalParam();
   boot();
 })();
