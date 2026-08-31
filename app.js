@@ -1368,15 +1368,22 @@ function openFeedback() {
   $("fbUp").classList.remove("sel");
   $("fbDown").classList.remove("sel");
   $("fbComment").value = "";
-  $("fbSend").disabled = true;
   $("fbSend").textContent = "Tell them! 💌";
+  refreshFbSend();
   $("fbModal").classList.remove("hidden");
 }
+// A thumb OR something typed is enough. Requiring the thumb left a child who wrote a
+// message but didn't tap 👍/👎 staring at a dead button with no way to send it.
+function refreshFbSend() {
+  const typed = ($("fbComment").value || "").trim();
+  $("fbSend").disabled = !feedbackVote && !typed;
+}
 function pickVote(v) {
-  feedbackVote = v;
-  $("fbUp").classList.toggle("sel", v === "up");
-  $("fbDown").classList.toggle("sel", v === "down");
-  $("fbSend").disabled = false;
+  // tapping the same thumb again clears it — the only way back out of a mis-tap
+  feedbackVote = feedbackVote === v ? "" : v;
+  $("fbUp").classList.toggle("sel", feedbackVote === "up");
+  $("fbDown").classList.toggle("sel", feedbackVote === "down");
+  refreshFbSend();
 }
 function sendFeedback() {
   const comment = ($("fbComment").value || "").trim().slice(0, 300);
@@ -1614,6 +1621,7 @@ $("revealGo").onclick = () => closeChestReveal(true);
 $("revealLater").onclick = () => closeChestReveal(false);
 $("fbUp").onclick = () => pickVote("up");
 $("fbDown").onclick = () => pickVote("down");
+$("fbComment").oninput = refreshFbSend;
 $("fbSend").onclick = sendFeedback;
 $("fbSkip").onclick = closeFeedback;
 $("prizeTake").onclick = takePrize;
