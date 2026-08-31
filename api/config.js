@@ -1,16 +1,20 @@
 // Vercel Serverless Function — the hider's published cards (the neighborhood setup).
 //
-//   GET                                   -> { season, stops, updated }  (stops:null before first publish)
-//   POST { code:"8979", stops, newHunt }  -> saves the cards, returns the new season
-//   POST { code:"8979", print:9 }         -> 9 sticker codes for a print sheet
+//   GET                                     -> { sections, stops, updated }  (stops:null before first publish)
+//   POST { code:"8979", stops, sections }   -> saves the cards
+//   POST { code:"8979", print:9 }           -> 9 sticker codes for a print sheet
 //
 // Storage is ONE key `nq:config` in Upstash Redis (a JSON blob), under the shared
 // "nq:" namespace so it sits alongside the scan/profile keys without collisions.
 //
-// `stops` is the lean editor shape: { name, emoji, code, ll:[lat,lng], park, quiz }. The
-// front-end (data.js -> nqNormalizeStop) fleshes each one out with a generic kid
-// mission. Publishing bumps the season by default so every player's stamps reset for
-// the new hunt; send newHunt:false to just fix a pin without resetting anyone.
+// `stops` is the lean editor shape:
+//   { name, emoji, code, ll:[lat,lng], park, section, role, hint, hintImg, quiz }
+// and `sections` is [{ id, name, emoji }]. The front-end (data.js -> nqNormalizeStop)
+// fleshes each card out with a generic kid mission.
+//
+// PUBLISHING NEVER RESETS ANYONE. There are no seasons: a stamp is keyed by the
+// sticker's code, so adding a sticker to a park somebody already finished just puts one
+// more pin on their map. Nothing already found is ever taken away.
 //
 // A sticker exists as a CODE before it exists as a card: you print a sheet of blank
 // stickers, then add the card once you've taped one somewhere you like. What must never
@@ -68,10 +72,39 @@ function sanitizeQuiz(q) {
   return { q: question, choices, correct };
 }
 
-function sanitizeStops(arr) {
+// The areas a hunt is split into. An id is generated from the name if the editor didn't
+// send one, so a section is addressable by something stable while it gets renamed.
+const okSectionId = (v) => /^[a-z0-9][a-z0-9_-]{0,30}$/.test((v || "").toString());
+function sanitizeSections(arr) {
   if (!Array.isArray(arr)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const s of arr.slice(0, 12)) {
+    if (!s || !okSectionId(s.id)) continue;
+    const id = s.id.toString();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: (s.name || "").toString().slice(0, 40).trim() || "Somewhere fun",
+      emoji: (s.emoji || "📍").toString().slice(0, 8),
+    });
+  }
+  return out;
+}
+
+const ROLES = ["start", "stop", "chest"];
+const okImgId = (v) => /^[a-z0-9]{4,20}$/.test((v || "").toString());
+
+function sanitizeStops(arr, sections) {
+  if (!Array.isArray(arr)) return [];
+  const real = new Set((sections || []).map((s) => s.id));
+  // One start and one chest per area. If the editor somehow sends two, the first wins
+  // and the rest become plain stops — better a stop too many than an area that can
+  // never be cleared because it's waiting on two different chests.
+  const claimed = new Set();
   return arr
-    .slice(0, 40)
+    .slice(0, 60)
     .map((s) => {
       const ll =
         Array.isArray(s.ll) && s.ll.length === 2 && s.ll.every((n) => typeof n === "number" && isFinite(n))
@@ -80,12 +113,24 @@ function sanitizeStops(arr) {
       const code = /^[a-f0-9]{4,12}$/i.test((s.code || "").toString())
         ? s.code.toString().toLowerCase()
         : randCode();
+      const section = real.has((s.section || "").toString()) ? s.section.toString() : null;
+      let role = ROLES.includes(s.role) ? s.role : "stop";
+      if (!section) role = "stop";                       // a loose card gates nothing
+      if (role !== "stop") {
+        const key = section + ":" + role;
+        if (claimed.has(key)) role = "stop"; else claimed.add(key);
+      }
       return {
         name: (s.name || "").toString().slice(0, 60),
         emoji: (s.emoji || "📍").toString().slice(0, 8),
         code,
         ll,
         park: !!s.park,
+        section,
+        role,
+        // "behind the big tree" — the last ten metres a GPS pin can't manage
+        hint: (s.hint || "").toString().slice(0, 200).trim(),
+        hintImg: okImgId(s.hintImg) ? s.hintImg.toString() : "",
         quiz: sanitizeQuiz(s.quiz),
       };
     });
@@ -98,7 +143,7 @@ function sanitizeStops(arr) {
 export default async function handler(req, res) {
   if (!redis) {
     // No DB yet: GET returns "no cards" so the app uses its built-in defaults.
-    if (req.method === "GET") { res.status(200).json({ season: 1, stops: null, note: "No database connected yet." }); return; }
+    if (req.method === "GET") { res.status(200).json({ sections: [], stops: null, note: "No database connected yet." }); return; }
     res.status(200).json({ ok: false, note: "No database connected yet." });
     return;
   }
@@ -106,7 +151,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const cfg = await redis.get(CONFIG);
       res.setHeader("Cache-Control", "no-store");
-      res.status(200).json(cfg || { season: 1, stops: null });
+      res.status(200).json(cfg || { sections: [], stops: null });
       return;
     }
 
@@ -123,16 +168,13 @@ export default async function handler(req, res) {
         return;
       }
 
-      const stops = sanitizeStops(b.stops);
+      const sections = sanitizeSections(b.sections);
+      const stops = sanitizeStops(b.stops, sections);
       if (!stops.length) { res.status(400).json({ error: "Add at least one card first." }); return; }
 
-      const prev = (await redis.get(CONFIG)) || { season: 1 };
-      const bumpSeason = b.newHunt !== false; // default: start a fresh hunt (resets stamps)
-      const season = bumpSeason ? ((Number.isInteger(prev.season) ? prev.season : 1) + 1) : (prev.season || 1);
-
-      const cfg = { season, stops, updated: Date.now() };
+      const cfg = { sections, stops, updated: Date.now() };
       await redis.set(CONFIG, cfg);
-      res.status(200).json({ ok: true, season, count: stops.length, newHunt: bumpSeason });
+      res.status(200).json({ ok: true, count: stops.length, areas: sections.length });
       return;
     }
 

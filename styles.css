@@ -96,6 +96,20 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .qpin:not(.found){animation:pinCall 2.2s ease-in-out infinite;}
 @keyframes pinCall{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 .qpin.found span{background:#effbe9;box-shadow:0 3px 6px rgba(0,0,0,.4),0 0 0 3px rgba(31,174,103,.25);}
+
+/* ---------- the chest: bigger, gold, and impossible to mistake for a stop ---------- */
+/* It only ever appears once every sticker in its area is found, so when it turns up it
+   should look like the thing the whole park was leading to. */
+.qpin.chest{width:56px;height:56px;}
+.qpin.chest span{width:56px;height:56px;font-size:30px;border-width:5px;
+  background:linear-gradient(160deg,#fff8e0,#ffe9a8);
+  box-shadow:0 4px 10px rgba(0,0,0,.45),0 0 0 6px rgba(245,163,0,.22);}
+.qpin.chest::after{width:18px;height:18px;bottom:0;}
+.qpin.chest::before{content:"★";background:#f5a300;width:23px;height:23px;font-size:14px;right:-6px;top:-6px;}
+.qpin.chest.found::before{content:"✓";background:#1fae67;}
+.qpin.chest:not(.found) span{filter:none;opacity:1;}     /* never faded — it's the prize */
+.qpin.chest:not(.found){animation:chestCall 1.9s ease-in-out infinite;}
+@keyframes chestCall{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-7px) scale(1.06)}}
 .leaflet-tooltip.pin-label{background:#fff;border:2px solid #cbbfa8;color:#4a3b2a;font-weight:800;font-size:12px;
   border-radius:8px;padding:1px 7px;box-shadow:0 2px 5px rgba(0,0,0,.25);}
 .leaflet-tooltip.pin-label.done{background:#effbe9;border-color:#1fae67;color:#126b41;}
@@ -266,6 +280,46 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
 .slot .q{opacity:.35;font-size:26px;}
 .slot small{font-size:9px;font-weight:800;color:#5a4a34;line-height:1.05;text-align:center;width:100%;}
 
+/* ---------- "Where to look": the last ten metres a GPS pin can't do ---------- */
+.stop-hint{background:#fff6e6;border:4px dashed #ffc46b;border-radius:20px;padding:12px 14px;margin:4px 0 12px;}
+.sh-tag{display:inline-block;font-weight:900;color:#d98a1a;font-size:15px;}
+.sh-shot{height:150px;border-radius:14px;margin:8px 0 6px;background:#efe6d6 center/cover no-repeat;
+  border:3px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,.15);}
+.sh-text{font-size:17px;font-weight:700;line-height:1.35;margin:4px 0 0;color:#7a5a25;}
+
+/* ---------- A chest appeared ---------- */
+.reveal-card{background:linear-gradient(170deg,#fffdf5,#ffeec2);border-color:#ffe9a8;}
+.reveal-chest{font-size:76px;line-height:1;animation:chestPop .6s cubic-bezier(.2,1.5,.4,1);
+  filter:drop-shadow(0 8px 6px rgba(180,130,0,.35));}
+@keyframes chestPop{from{transform:scale(0) rotate(-25deg)}to{transform:scale(1) rotate(0)}}
+.reveal-guide-row{display:flex;align-items:center;gap:10px;text-align:left;background:#fff;
+  border-radius:20px;padding:11px 13px;margin:10px 0 12px;box-shadow:0 4px 0 rgba(0,0,0,.08);}
+.reveal-guide{font-size:38px;line-height:1;flex:0 0 auto;}
+.reveal-say{margin:0;font-weight:800;font-size:16px;line-height:1.3;color:#6b5638;}
+.reveal-hint{font-weight:700;font-size:15px;color:#8a6300;background:rgba(255,255,255,.7);
+  border-radius:14px;padding:9px 12px;margin:0 0 12px;line-height:1.3;}
+.reveal-card .big-btn{width:100%;background:linear-gradient(100deg,#ffb01f,#ff8a3d);}
+
+/* ---------- What did you think? ---------- */
+.fb-sub{color:#8a7a62;font-weight:700;font-size:14px;margin:2px 0 14px;}
+.fb-votes{display:flex;justify-content:center;gap:14px;margin-bottom:14px;}
+.fb-vote{font-size:38px;line-height:1;width:84px;height:74px;cursor:pointer;background:#fff;
+  border:4px solid #e0d3bd;border-radius:22px;transition:.15s;}
+.fb-vote:active{transform:translateY(3px);}
+.fb-vote.sel{border-color:var(--green);background:#effbe9;transform:scale(1.06);}
+.fb-comment{width:100%;font-family:inherit;font-size:16px;font-weight:700;color:var(--ink);
+  border:4px solid #e0d3bd;border-radius:18px;padding:11px 13px;resize:none;background:#fff;
+  margin-bottom:14px;box-sizing:border-box;}
+.fb-comment:focus{outline:none;border-color:var(--sun);}
+.fb-card .big-btn{width:100%;}
+
+/* a quiet second option under a big one — "Later", "No thanks" */
+.ghost-btn{width:100%;margin-top:10px;background:none;border:none;font-family:inherit;font-weight:800;
+  font-size:15px;color:#9a8a72;cursor:pointer;padding:9px;text-decoration:underline;}
+
+/* the chest's slot in the passport, once it's been opened */
+.slot.chest.got{border-color:#f5a300;background:linear-gradient(160deg,#fffaeb,#ffeec2);}
+
 /* ---------- The prize: pick one, then go and get it ---------- */
 .menu-btn.prize{background:linear-gradient(100deg,#ff9d3d,#ff6f61);}
 .menu-btn.prize.ready{animation:prizeCall 1.6s ease-in-out infinite;}
@@ -338,10 +392,32 @@ html,body{margin:0;height:100%;font-family:"Baloo 2","Segoe UI Rounded","Segoe U
   .home-guide-emoji,.home-guide-emoji.chat,.home-speech.pop{animation:none;}
 }
 .home-hi{font-size:25px;margin:6px 0 2px;color:#ff6f61;text-shadow:0 3px 0 #fff;}
-.home-progress{margin:0 auto 12px;max-width:320px;}
-.hp-bar{height:15px;background:#fff;border-radius:999px;overflow:hidden;box-shadow:inset 0 2px 4px rgba(0,0,0,.12);border:2px solid #fff;}
-.hp-fill{height:100%;width:0;background:linear-gradient(90deg,#ffd54b,#7ecb73);border-radius:999px;transition:width .5s;}
-.hp-text{font-weight:800;color:#5b7a92;margin-top:6px;font-size:14px;}
+/* ---------- One row per area ---------- */
+/* Three parks means three little hunts running at once, so a single combined bar tells
+   a child at one of them nothing. Tap a row to open the map framed on that park. */
+.area-list{display:flex;flex-direction:column;gap:8px;margin:0 auto 12px;max-width:340px;}
+.area{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:none;cursor:pointer;
+  font-family:inherit;text-align:left;border-radius:18px;background:rgba(255,255,255,.8);
+  box-shadow:0 4px 0 rgba(0,0,0,.09);transition:transform .08s;}
+.area:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.09);}
+.area .ae{font-size:26px;line-height:1;flex:0 0 auto;}
+.area .ab{flex:1;min-width:0;}
+.area .an{display:block;font-weight:800;font-size:14px;color:#5b7a92;margin-bottom:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.area .atrack{display:block;height:11px;background:#efe6d6;border-radius:999px;overflow:hidden;}
+.area .atrack i{display:block;height:100%;width:0;border-radius:999px;transition:width .5s;
+  background:linear-gradient(90deg,#ffd54b,#7ecb73);}
+.area .av{flex:0 0 auto;font-weight:900;font-size:14px;color:#8a7a62;min-width:34px;text-align:right;}
+/* not started: only its 🚩 start sticker is out there to find */
+.area.shut{opacity:.72;}
+.area.shut .atrack{display:none;}
+.area.shut .an{margin-bottom:0;}
+/* cleared, and the chest is still sitting out there unopened */
+.area.treasure{background:linear-gradient(100deg,#fff3cf,#ffe08a);box-shadow:0 4px 0 rgba(190,140,0,.22);
+  animation:areaCall 1.8s ease-in-out infinite;}
+.area.treasure .an{color:#8a6300;}
+.area.treasure .av{font-size:18px;}
+@keyframes areaCall{0%,100%{transform:scale(1)}50%{transform:scale(1.025)}}
 /* ---------- Lifetime totals + badges ---------- */
 .lifetime{margin:0 auto 12px;max-width:340px;}
 .life-strip{display:flex;justify-content:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}

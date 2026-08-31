@@ -44,6 +44,50 @@
   #lock button{width:100%;margin-top:12px;background:#2b5cc4;border-color:#3f74e0;}
   .shake{animation:shk .35s;}
   @keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
+  /* ---- players: cards, not a table ---- */
+  .plist{display:flex;flex-direction:column;gap:10px;}
+  .pl{background:#0f1626;border:1px solid #26314c;border-radius:12px;padding:11px 13px;}
+  .pl-head{display:flex;align-items:center;gap:8px;}
+  .pl-face{font-size:20px;line-height:1;}
+  .pl-name{font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pl-when{margin-left:auto;font-size:12px;flex:0 0 auto;}
+  .pl-found{font-size:13px;color:#c7d0ea;margin-top:5px;font-weight:700;}
+  .pl-area{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12px;}
+  .pl-an{flex:0 0 40%;color:#93a1c2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pl-track{flex:1;height:8px;background:#182135;border-radius:999px;overflow:hidden;}
+  .pl-track i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#5ec8ff,#7ee29a);}
+  .pl-v{flex:0 0 auto;font-weight:700;color:#c7d0ea;min-width:38px;text-align:right;}
+
+  /* ---- what they thought ---- */
+  .fb-tally{float:right;font-size:14px;color:#93a1c2;font-weight:700;}
+  .fb{background:#0f1626;border:1px solid #26314c;border-left:3px solid #7ee29a;border-radius:10px;
+    padding:10px 12px;margin-bottom:9px;}
+  .fb.down{border-left-color:#ff8fb0;}
+  .fb-head{display:flex;align-items:center;gap:7px;font-size:13px;flex-wrap:wrap;}
+  .fb-thumb{font-size:17px;}
+  .fb-when{margin-left:auto;font-size:12px;}
+  .fb-text{margin:7px 0 0;font-size:14px;line-height:1.45;color:#e8edf7;}
+
+  /* ---- phones ---- */
+  /* The tables that are left get to scroll inside their own box rather than pushing the
+     whole page sideways, and the least useful column drops out entirely. */
+  @media(max-width:560px){
+    body{padding:14px;}
+    h1{font-size:21px;}
+    .panel{padding:13px 14px;}
+    .cards{grid-template-columns:1fr 1fr;gap:9px;}
+    .stat{padding:12px;}
+    .stat .n{font-size:27px;}
+    .row{gap:8px;}
+    .hide-sm{display:none;}
+    table{font-size:12px;}
+    th,td{padding:6px 5px;}
+    .nowrap{white-space:nowrap;}
+    .bar-row .name{width:110px;font-size:12px;}
+    .pl-an{flex-basis:34%;}
+  }
+  .panel table{display:block;overflow-x:auto;}
 </style>
 </head>
 <body>
@@ -69,19 +113,27 @@
     <span class="muted" id="updated"></span>
   </div>
 
+  <!-- Four numbers, two per row on a phone. "Unique visitors" used to sit here too and
+       was within one or two of "Players" every single time, so it went. -->
   <div class="cards">
     <div class="stat"><div class="n a" id="cScans">0</div><div class="l">Total scans</div></div>
-    <div class="stat"><div class="n b" id="cUniq">0</div><div class="l">Unique visitors</div></div>
+    <div class="stat"><div class="n" id="cPlayers" style="color:#c79bff">0</div><div class="l">Players</div></div>
     <div class="stat"><div class="n c" id="cToday">0</div><div class="l">Scans today</div></div>
     <div class="stat"><div class="n d" id="cComp">0</div><div class="l">Quests finished</div></div>
-    <div class="stat"><div class="n" id="cPlayers" style="color:#c79bff">0</div><div class="l">Players</div></div>
   </div>
 
+  <!-- Who, how far, and when — the three things you actually watch from the sofa. This
+       is a list of cards rather than a table: six columns at 13 px hung off the side of
+       every phone, and no amount of sideways scrolling makes that readable. -->
   <div class="panel" id="playersPanel">
     <h2>Players &amp; progress</h2>
-    <table><thead><tr><th>Player</th><th>This season</th><th>Prize picked</th><th>All-time</th><th>Season</th><th>Last active</th></tr></thead>
-    <tbody id="players"></tbody></table>
+    <div id="players" class="plist"></div>
     <div id="playersEmpty" class="muted" style="display:none;">No players yet — once someone picks a guide, they'll appear here.</div>
+  </div>
+
+  <div class="panel" id="fbPanel" style="display:none;">
+    <h2>What they thought <span id="fbTally" class="fb-tally"></span></h2>
+    <div id="fbList"></div>
   </div>
 
   <div class="panel">
@@ -96,7 +148,7 @@
 
   <div class="panel" id="recentPanel" style="display:none;">
     <h2>Recent activity</h2>
-    <table><thead><tr><th>When</th><th>Sticker</th><th>What happened</th><th>Guide</th></tr></thead>
+    <table><thead><tr><th>When</th><th>Sticker</th><th>What happened</th><th class="hide-sm">Guide</th></tr></thead>
     <tbody id="recent"></tbody></table>
   </div>
 
@@ -145,24 +197,37 @@ function render(d, live){
   document.getElementById("cComp").textContent = d.completions||0;
   document.getElementById("cPlayers").textContent = d.playerCount || (d.players ? d.players.length : 0) || 0;
 
-  // Players & progress
+  // Players & progress — one card each, and a line per area they've started, because
+  // "7 of 19" across three separate parks doesn't tell you anything you wanted to know.
   const players = d.players || [];
-  const ptbody = document.getElementById("players"), pempty = document.getElementById("playersEmpty");
+  const pbox = document.getElementById("players"), pempty = document.getElementById("playersEmpty");
   if(players.length){
     pempty.style.display = "none";
     const total = STOPS.length;
-    ptbody.innerHTML = players.map(p => {
+    pbox.innerHTML = players.map(p => {
       const name = (p.name && p.name.trim()) ? escapeHtml(p.name) : "<span class='muted'>(no name)</span>";
-      return `<tr>
-        <td>${mascotEmoji(p.mascot)} <b>${name}</b></td>
-        <td>🏅 ${p.found}/${total}${p.found>=total?' ✅':''}</td>
-        <td>${p.prize ? '🎁 ' + escapeHtml(p.prize) : '<span class="muted">—</span>'}</td>
-        <td>${p.lifetimeFound}</td>
-        <td>${p.season==null?'—':p.season}</td>
-        <td class="muted">${timeAgo(p.updated)}</td></tr>`;
+      const got = new Set(p.codes || []);
+      const rows = SECTIONS.map(sec => {
+        const mine = STOPS.filter(s => s.section === sec.id);
+        const n = mine.filter(s => got.has(s.code)).length;
+        if(!n) return "";                                  // not started: not their park yet
+        const chest = mine.find(s => s.role === "chest");
+        return `<div class="pl-area"><span class="pl-an">${sec.emoji} ${escapeHtml(sec.name)}</span>
+          <span class="pl-track"><i style="width:${mine.length?Math.round(n/mine.length*100):0}%"></i></span>
+          <span class="pl-v">${n}/${mine.length}${chest && got.has(chest.code) ? " 🎁" : ""}</span></div>`;
+      }).filter(Boolean).join("");
+      return `<div class="pl">
+        <div class="pl-head">
+          <span class="pl-face">${mascotEmoji(p.mascot)}</span>
+          <b class="pl-name">${name}</b>
+          <span class="pl-when muted">${timeAgo(p.updated)}</span>
+        </div>
+        <div class="pl-found">🏅 ${p.found}${total?" of "+total:""} found${p.found>=total&&total?" ✅":""}</div>
+        ${rows}
+      </div>`;
     }).join("");
   } else {
-    ptbody.innerHTML = ""; pempty.style.display = "";
+    pbox.innerHTML = ""; pempty.style.display = "";
   }
 
   const per = (d.perStop||[]).slice().sort((a,b)=>a.stop_id-b.stop_id);
@@ -179,10 +244,11 @@ function render(d, live){
   }
   if(d.recent && d.recent.length){
     document.getElementById("recentPanel").style.display="";
+    // "3m ago" rather than a full locale timestamp, which on its own is wider than a phone
     document.getElementById("recent").innerHTML = d.recent.map(r=>
-      `<tr><td>${new Date(r.ts).toLocaleString()}</td>
+      `<tr><td class="muted nowrap">${timeAgo(r.ts)}</td>
        <td>${r.stop_id?stopName(r.stop_id):'<span class="muted">no sticker</span>'}</td>
-       <td>${eventLabel(r.event)}</td><td>${r.mascot?mascotName(r.mascot):'<span class="muted">not chosen yet</span>'}</td></tr>`).join("");
+       <td>${eventLabel(r.event)}</td><td class="hide-sm">${r.mascot?mascotName(r.mascot):'<span class="muted">not chosen yet</span>'}</td></tr>`).join("");
   }
   document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString();
   document.getElementById("footnote").textContent = live
@@ -212,9 +278,10 @@ async function tryUnlock(code){
   try{ localStorage.setItem(CODE_KEY, code); }catch{}
   el("lock").classList.add("hidden");
   el("board").classList.remove("hidden");
-  // Cards first so stop names match the live hunt, then paint.
+  // Cards first so stop names and areas match the live hunt, then paint.
   await loadConfig().catch(()=>{});
   if(d && d.connected) render(d, true); else render(localData(), false);
+  loadFeedback();          // its own request; unlocking shouldn't wait on it
   return true;
 }
 function wrongCode(msg){
@@ -231,12 +298,39 @@ el("unlockBtn").onclick = async () => {
 el("codeInput").addEventListener("keydown", (e) => { if(e.key === "Enter") el("unlockBtn").click(); });
 
 async function loadStats(){
+  loadFeedback();                    // its own request, so a slow one never holds up the stats
   try{
     const r = await fetch("/api/stats?code=" + encodeURIComponent(ADMIN_CODE), {cache:"no-store"});
     const d = await r.json();
     if(d && d.connected){ render(d, true); return; }
   }catch(e){ /* fall through to this device's own tally */ }
   render(localData(), false);
+}
+
+// What the kids said after opening a chest. Nobody but this page can read it — the
+// endpoint wants the setup code — and every word of it was typed by a child, so it is
+// escaped on the way in like any other untrusted text.
+async function loadFeedback(){
+  let d = null;
+  try{
+    const r = await fetch("/api/feedback?code=" + encodeURIComponent(ADMIN_CODE), {cache:"no-store"});
+    if(r.ok) d = await r.json();
+  }catch{ /* offline: leave the panel hidden */ }
+  if(!d || !d.items || !d.items.length) return;
+  document.getElementById("fbPanel").style.display = "";
+  const v = d.votes || {up:0, down:0};
+  document.getElementById("fbTally").textContent = `👍 ${v.up}   👎 ${v.down}`;
+  document.getElementById("fbList").innerHTML = d.items.map(f => {
+    const who = (f.name||"").trim() ? escapeHtml(f.name) : "Someone";
+    const thumb = f.vote === "up" ? "👍" : f.vote === "down" ? "👎" : "💬";
+    const where = f.area ? escapeHtml(f.area) : (f.stop ? escapeHtml(f.stop) : "");
+    return `<div class="fb${f.vote === "down" ? " down" : ""}">
+      <div class="fb-head"><span class="fb-thumb">${thumb}</span><b>${who}</b>
+        ${where ? `<span class="muted">· ${where}</span>` : ""}
+        <span class="fb-when muted">${timeAgo(f.ts)}</span></div>
+      ${f.comment ? `<p class="fb-text">“${escapeHtml(f.comment)}”</p>` : `<p class="fb-text muted">(no comment)</p>`}
+    </div>`;
+  }).join("");
 }
 
 // Straight in if this device already knows the code.

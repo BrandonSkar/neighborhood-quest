@@ -1,12 +1,16 @@
 // Vercel Serverless Function — the "start over" button behind the setup code.
 //
-//   POST { code, keepCards:true }   -> wipes scans/players/alerts, KEEPS your cards,
-//                                      and puts the hunt back to Season 1
+//   POST { code, keepCards:true }   -> wipes scans/players/alerts, KEEPS your cards
 //   POST { code, keepCards:false }  -> wipes those AND the published cards
 //
 // Only ever touches keys under the "nq:" prefix, so a shared Upstash database keeps
 // its other apps (becu:*, sparkle:*) intact. There is no GET — you can't do this by
 // pasting a URL in a browser.
+//
+// WHAT THIS CANNOT DO: reach the kids' phones. Their stamps live in their own browser
+// storage and there are no seasons any more to invalidate them with, so this clears
+// YOUR records — the dashboard, the tallies, the alert cooldowns — and nothing else. A
+// child clears their own with "Delete my data" on the home screen.
 import { Redis } from "@upstash/redis";
 
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -26,7 +30,7 @@ export default async function handler(req, res) {
     if ((b.code || "").toString() !== ADMIN_CODE) { res.status(403).json({ error: "Wrong setup code." }); return; }
     const keepCards = b.keepCards !== false;
 
-    // Read the cards first so we can put them back with the season reset to 1.
+    // Read the cards first, so a scan that sweeps the whole namespace can put them back.
     const cfg = keepCards ? await redis.get(CONFIG) : null;
 
     let cursor = "0", deleted = 0;
@@ -39,14 +43,11 @@ export default async function handler(req, res) {
       if (doomed.length) { await redis.del(...doomed); deleted += doomed.length; }
     } while (cursor !== "0");
 
-    // Back to Season 1. Every phone notices the season changed on its next open and
-    // clears its own stamps, so nobody is left holding stamps from the test run.
-    let season = 1;
     if (keepCards && cfg && Array.isArray(cfg.stops)) {
-      await redis.set(CONFIG, { ...cfg, season: 1, updated: Date.now() });
+      await redis.set(CONFIG, { ...cfg, updated: Date.now() });
     }
 
-    res.status(200).json({ ok: true, deleted, keptCards: !!(keepCards && cfg), season });
+    res.status(200).json({ ok: true, deleted, keptCards: !!(keepCards && cfg) });
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
   }

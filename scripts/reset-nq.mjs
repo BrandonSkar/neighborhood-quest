@@ -1,6 +1,6 @@
 // DANGER: deletes ALL "nq:*" keys (scans, sessions, profiles, everything) so the
 // Neighborhood Quest data starts clean. It ONLY touches nq:* — becu:* and sparkle:*
-// are left alone. Use before launch, or to wipe stats between seasons.
+// are left alone. Use before launch, or to clear out a run of testing.
 //
 // Run it (the Daily Learning Game folder already has @upstash/redis installed, or
 // `npm i @upstash/redis` in any folder):
@@ -38,17 +38,9 @@ try {
     }
   } while (cursor !== "0");
 
-  // Put the hunt back to Season 1 so nobody keeps stamps from the old run. (Every
-  // phone compares the season on open and clears itself when it changes.)
-  if (keepConfig) {
-    const cfg = await redis.get("nq:config");
-    if (cfg && Array.isArray(cfg.stops) && cfg.season !== 1) {
-      await redis.set("nq:config", { ...cfg, season: 1, updated: Date.now() });
-      console.log("reset nq:config season -> 1");
-    }
-  }
-
   console.log(`\nDone. Deleted ${total} nq:* key(s). becu:* and sparkle:* untouched.`);
+  console.log("Note: this clears YOUR records only. Kids' stamps live on their own");
+  console.log("phones and stay put — they clear them with \"Delete my data\" in the app.");
   if (kept) console.log("Kept nq:config (your published cards). Use --with-config to delete it too.");
 } catch (e) {
   console.error("Error:", e);

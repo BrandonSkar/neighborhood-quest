@@ -70,6 +70,28 @@
   .ce-del{margin-left:auto;padding:8px 14px;font-size:14px;}
   .ce-pin{font-size:13px;font-weight:700;color:#a0abc2;}
   .ce-pin.ok{color:#118a52;}
+  /* which area a sticker is in, and what it does there */
+  .ce-where select{flex:1;min-width:150px;font-family:inherit;font-size:15px;font-weight:700;padding:9px 10px;
+    border:2px solid #cdd6e8;border-radius:10px;background:#fff;color:#2a3346;}
+  .ce-where select:disabled{opacity:.5;}
+  .ce-where select:focus{outline:none;border-color:#5b8def;}
+  /* the group heading above each area's stickers */
+  h3.grp{margin:20px 0 8px;font-size:15px;color:#3a5a8a;border-bottom:2px solid #e2e8f4;padding-bottom:5px;}
+  h3.grp:first-child{margin-top:2px;}
+  /* the chest's "behind the big tree" hint, and a photo of the spot */
+  .ce-hint{margin-top:12px;border-top:1px dashed #dbe3f2;padding-top:10px;}
+  .ce-hint label{font-size:13px;color:#3a5a8a;}
+  .ce-hint .opt{font-weight:400;color:#9aa7c2;}
+  .ch-photo{display:flex;gap:12px;align-items:flex-start;margin-top:10px;}
+  .ch-shot{flex:0 0 120px;height:90px;border-radius:10px;background:#eef2fb center/cover no-repeat;
+    border:2px solid #dbe3f2;}
+  .ch-shot.empty{display:grid;place-items:center;}
+  .ch-shot.empty::after{content:"🖼️";font-size:26px;opacity:.35;}
+  .ch-photo-side{flex:1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .ch-pick{display:inline-block;margin:0;font-size:14px;font-weight:700;cursor:pointer;background:#eaf4ff;
+    color:#1c6fd6;border:1px solid #bfdcff;border-radius:10px;padding:10px 14px;}
+  .ch-clear{padding:9px 13px;font-size:14px;}
+
   /* per-card quiz: one question, up to three answers, tick the right one */
   .ce-quiz{margin-top:12px;border-top:1px dashed #dbe3f2;padding-top:10px;}
   .ce-quiz label{font-size:13px;color:#3a5a8a;}
@@ -156,7 +178,18 @@
   </div>
 
   <div class="panel">
-    <h2 style="margin-top:2px;">2. Stickers you've placed</h2>
+    <h2 style="margin-top:2px;">2. Areas</h2>
+    <p class="note" style="margin-top:0;">An area is one park's worth of hunt. Each one runs on its own: only its <b>🚩 start</b> sticker shows on the map until a child scans it, then the rest of that area's stickers appear, and once they've found them all a <b>🎁 treasure chest</b> turns up — bigger and gold — with a real prize hidden at it. Three parks means three areas and three prizes. Add stickers to an area whenever you like; it just means one more to find before the chest.</p>
+    <div id="areas"></div>
+    <div class="toolbar add-row">
+      <input id="newAreaName" class="add-code" style="width:190px;" maxlength="40" placeholder="New area name" aria-label="New area name" />
+      <button id="addAreaBtn">➕ Add this area</button>
+      <span id="areaStatus" class="status"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:2px;">3. Stickers you've placed</h2>
     <p class="note" style="margin-top:0;">Standing at a sticker you just taped up? Type the <b>code</b> printed on it, then tap <b>📍 Use my location</b>, name the spot, pick a picture and add a question. One sticker at a time — publish whenever you like.</p>
     <p id="loadWarn" class="warn hidden"></p>
     <div id="cards"></div>
@@ -172,9 +205,8 @@
   </div>
 
   <div class="panel">
-    <h2 style="margin-top:2px;">3. Publish</h2>
-    <label class="check"><input type="checkbox" id="newHunt" /> Start a fresh hunt (resets every kid's stamps for the new set)</label>
-    <p class="note">Off by default, so publishing only updates the cards and nobody loses progress. Tick it when you've moved to a whole new set of spots.</p>
+    <h2 style="margin-top:2px;">4. Publish</h2>
+    <p class="note" style="margin-top:0;">Publishing never resets anybody. A stamp belongs to the sticker's code, so adding a sticker to a park somebody has already finished just puts one more pin on their map to go back for — nothing they've found is ever taken away.</p>
     <div class="toolbar" style="margin-top:12px;">
       <button id="publishBtn" class="big">🚀 Publish to all phones</button>
       <span id="pubStatus" class="status"></span>
@@ -184,7 +216,7 @@
 
   <div class="panel noprint danger-zone">
     <h2 style="margin-top:2px;">Start over</h2>
-    <p class="note" style="margin-top:0;">Clears every scan, player and missing-sticker tally from the database and puts the hunt back to <b>Season 1</b>. Each phone notices the season changed next time it opens and clears its own stamps. This can't be undone.</p>
+    <p class="note" style="margin-top:0;">Clears every scan, player and missing-sticker tally from <b>your</b> database — the dashboard goes back to zero. This can't be undone. It does <b>not</b> reach the kids' phones: their stamps live in their own browsers, and each of them clears their own with <b>🗑️ Delete my data</b> in the app.</p>
     <div class="toolbar">
       <button id="wipeKeepBtn" class="danger">🧹 Wipe all data, keep my cards</button>
       <button id="wipeAllBtn" class="danger">💣 Wipe everything, cards too</button>
@@ -290,17 +322,20 @@
         const c = await r.json();
         configLoaded = true;
         if (c && Array.isArray(c.stops)) src = c.stops;
+        if (c && Array.isArray(c.sections)) areas = c.sections.map((a) => ({ id: a.id, name: a.name || "", emoji: a.emoji || "📍" }));
       }
     } catch { /* offline or file:// — handled just below */ }
 
     cards = src.map(fromStop);
     if (!configLoaded) {
+      $("addAreaBtn").disabled = true;
       $("loadWarn").textContent = "⚠️ Couldn't read your cards from the database, so this page can't publish " +
         "(it would wipe whatever is really out there). Get a signal and reload.";
       $("loadWarn").classList.remove("hidden");
       $("publishBtn").disabled = true;
     }
     loadSheet();
+    renderAreas();
     renderCards();
     renderSheet();
   }
@@ -312,10 +347,166 @@
     park: !!s.park,
     code: normCode(s.code),
     acc: null,
+    section: s.section || "",
+    role: ["start", "stop", "chest"].includes(s.role) ? s.role : "stop",
+    hint: s.hint || "",
+    hintImg: s.hintImg || "",
     q: (s.quiz && s.quiz.q) || "",
     choices: (s.quiz && Array.isArray(s.quiz.choices) ? s.quiz.choices.slice(0, 3) : []),
     correct: (s.quiz && Number.isInteger(s.quiz.correct)) ? s.quiz.correct : 0,
   });
+
+  // ---- areas ----------------------------------------------------------------------
+  // Each one is a park's worth of hunt with its own start, its own stickers and its own
+  // chest. The id is generated once from the name and then never changes, so renaming
+  // "Lakeland Park" to "Lakeland Hills Park" doesn't orphan every card pointing at it.
+  let areas = [];
+  const AREA_PICS = ["🎡", "🌳", "🏫", "🛝", "🌲", "🏞️", "⛲", "🏀", "🌸", "🏘️", "🎯", "🗺️"];
+
+  function areaId(name) {
+    let base = (name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24);
+    if (!base || !/^[a-z0-9]/.test(base)) base = "area";
+    let id = base, n = 2;
+    while (areas.some((a) => a.id === id)) id = base + "-" + n++;
+    return id;
+  }
+  const areaById = (id) => areas.find((a) => a.id === id) || null;
+  const inArea = (id) => cards.filter((c) => c.section === id);
+  const roleTaken = (id, role, exceptCard) => inArea(id).some((c) => c !== exceptCard && c.role === role);
+
+  function renderAreas() {
+    const box = $("areas"); box.innerHTML = "";
+    if (!areas.length) {
+      box.innerHTML = `<p class="note">No areas yet. Name one after the park you're hiding in — "Lakeland Hills Park" — then set each sticker's area below.</p>`;
+      return;
+    }
+    areas.forEach((a, i) => {
+      const mine = inArea(a.id);
+      const start = mine.find((c) => c.role === "start");
+      const chest = mine.find((c) => c.role === "chest");
+      const stops = mine.filter((c) => c.role === "stop");
+      const el = document.createElement("div");
+      el.className = "card-edit";
+      el.innerHTML = `
+        <div class="ce-top">
+          <button class="ce-emoji ar-emoji" title="Tap to choose a picture">${escapeHtml(a.emoji)}</button>
+          <input class="ce-name ar-name" placeholder="Area name" value="${escapeAttr(a.name)}" aria-label="Area name" />
+          <button class="ce-del danger ghost ar-del">🗑️</button>
+        </div>
+        <div class="ce-pick ar-pick hidden"><div class="pg">${AREA_PICS.map((e) =>
+          `<button data-em="${escapeAttr(e)}"${e === a.emoji ? ' class="sel"' : ""}>${e}</button>`).join("")}</div></div>
+        <p class="note ar-sum" style="margin:8px 0 0;">
+          ${start ? "🚩 " + escapeHtml(start.name || start.code) : "<b>no 🚩 start sticker yet</b>"} ·
+          ${stops.length} 📍 to find ·
+          ${chest ? "🎁 " + escapeHtml(chest.name || chest.code) : "<b>no 🎁 chest yet</b>"}
+        </p>`;
+
+      const nameBox = el.querySelector(".ar-name");
+      nameBox.oninput = () => { a.name = nameBox.value; renderCards(); };
+      const emojiBtn = el.querySelector(".ar-emoji"), picker = el.querySelector(".ar-pick");
+      emojiBtn.onclick = () => picker.classList.toggle("hidden");
+      picker.querySelectorAll("button").forEach((b) => {
+        b.onclick = () => {
+          a.emoji = b.dataset.em; emojiBtn.textContent = a.emoji;
+          picker.querySelectorAll("button").forEach((o) => o.classList.toggle("sel", o === b));
+          picker.classList.add("hidden");
+          renderCards();
+        };
+      });
+      el.querySelector(".ar-del").onclick = () => {
+        // its cards aren't deleted — they go loose, so nothing taped to a lamp post is lost
+        if (mine.length && !confirm(`Delete the area "${a.name}"?\n\nIts ${mine.length} sticker(s) stay, but they'll show on the map from the start with no chest at the end.`)) return;
+        mine.forEach((c) => { c.section = ""; c.role = "stop"; });
+        areas.splice(i, 1);
+        renderAreas(); renderCards();
+      };
+      box.appendChild(el);
+    });
+  }
+
+  function addArea() {
+    const name = ($("newAreaName").value || "").trim();
+    if (!name) { setAreaStatus("Give the area a name first — the park it's in works well.", "err"); return; }
+    if (areas.length >= 12) { setAreaStatus("Twelve areas is the limit.", "err"); return; }
+    areas.push({ id: areaId(name), name, emoji: AREA_PICS[areas.length % AREA_PICS.length] });
+    $("newAreaName").value = "";
+    setAreaStatus("Added! Now set each sticker's area below. 👇", "ok");
+    renderAreas(); renderCards();
+  }
+  function setAreaStatus(t, cls) { const s = $("areaStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+  $("addAreaBtn").onclick = addArea;
+  $("newAreaName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addArea(); } });
+
+  // ---- a photo of the hiding place ----------------------------------------------
+  // Shrunk on the phone before it goes anywhere: a modern phone photo is 3-6 MB and the
+  // database (and a signal in a park) wants tens of kilobytes. Stored through the prize
+  // endpoint, which is already an image store keyed by id — one place for pictures
+  // rather than two. Same code as setup-prize.html; the two pages upload alike.
+  const MAX_EDGE = 900, TARGET_BYTES = 260_000;
+  const newId = () => Math.random().toString(36).slice(2, 10).replace(/[^a-z0-9]/g, "") + "0";
+
+  async function shrink(file) {
+    const bmp = await loadBitmap(file);
+    const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    cv.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    if (bmp.close) bmp.close();
+    // step the quality down until it fits — a busy photo needs more squeezing than a plain one
+    let out = "";
+    for (const q of [0.72, 0.6, 0.5, 0.4, 0.32]) {
+      out = cv.toDataURL("image/jpeg", q);
+      if (out.length <= TARGET_BYTES) break;
+    }
+    return out;
+  }
+  function loadBitmap(file) {
+    if (window.createImageBitmap) {
+      // honour the phone's rotation flag, or portrait photos come out sideways
+      return createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => viaImgTag(file));
+    }
+    return viaImgTag(file);
+  }
+  function viaImgTag(file) {
+    return new Promise((done, fail) => {
+      const u = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => { URL.revokeObjectURL(u); done(im); };
+      im.onerror = () => { URL.revokeObjectURL(u); fail(new Error("bad image")); };
+      im.src = u;
+    });
+  }
+  async function upload(file, meta) {
+    meta.textContent = "Shrinking…";
+    let data;
+    try { data = await shrink(file); }
+    catch { meta.textContent = "Couldn't read that picture — try a JPEG or PNG."; return null; }
+    const id = newId();
+    meta.textContent = `Uploading ${Math.round(data.length / 1024)} KB…`;
+    try {
+      const r = await fetch("/api/prize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, img: { id, data } }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { meta.textContent = j.error || j.note || "Upload failed."; return null; }
+      meta.textContent = `Saved · ${Math.round(data.length / 1024)} KB`;
+      return id;
+    } catch {
+      meta.textContent = "Couldn't reach the server — open this page on the live site.";
+      return null;
+    }
+  }
+  async function dropImage(id) {
+    if (!id) return;
+    try {
+      await fetch("/api/prize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: SETUP_CODE, drop: id }),
+      });
+    } catch {}
+  }
 
   // ---- getting a pin worth walking to ----
   // One reading is whatever the phone believed at that instant — often ±30 m from a cold
@@ -374,7 +565,26 @@
   function renderCards() {
     if (sampling) sampling("cancelled");   // the card it was painting into is about to go
     const box = $("cards"); box.innerHTML = "";
-    cards.forEach((c, i) => {
+
+    // Grouped by area, areas in their own order, anything loose last — the same shape
+    // the kids' home screen shows, so what you lay out here is what they get.
+    const groups = areas.map((a) => ({ head: `${a.emoji} ${a.name || "(unnamed area)"}`, list: inArea(a.id) }));
+    const loose = cards.filter((c) => !areaById(c.section));
+    if (loose.length) groups.push({ head: areas.length ? "🗺️ Not in an area" : "", list: loose });
+
+    groups.forEach((g) => {
+      if (g.head) {
+        const h = document.createElement("h3");
+        h.className = "grp"; h.textContent = g.head;
+        box.appendChild(h);
+      }
+      g.list.forEach((c) => renderCard(box, c, cards.indexOf(c)));
+    });
+    if (!cards.length) box.innerHTML = `<p class="note">No stickers placed yet. Print a sheet above, tape one somewhere good, then type its code in below.</p>`;
+  }
+
+  function renderCard(box, c, i) {
+    {
       const el = document.createElement("div");
       el.className = "card-edit";
       el.dataset.code = c.code;
@@ -394,6 +604,30 @@
           <button class="ce-loc${hasPin(c) ? " ok" : ""}">📍 Use my location</button>
           <span class="ce-pin"></span>
           <button class="ce-del danger ghost">🗑️ Delete</button>
+        </div>
+        <div class="ce-row2 ce-where">
+          <select class="ce-area" aria-label="Which area this sticker belongs to">
+            <option value=""${!c.section ? " selected" : ""}>— not in an area —</option>
+            ${areas.map((a) => `<option value="${escapeAttr(a.id)}"${c.section === a.id ? " selected" : ""}>${escapeHtml(a.emoji + " " + (a.name || "(unnamed)"))}</option>`).join("")}
+          </select>
+          <select class="ce-role" aria-label="What this sticker does"${c.section ? "" : " disabled"}>
+            <option value="stop"${c.role === "stop" ? " selected" : ""}>📍 One to find</option>
+            <option value="start"${c.role === "start" ? " selected" : ""}>🚩 Start of the area</option>
+            <option value="chest"${c.role === "chest" ? " selected" : ""}>🎁 Treasure chest</option>
+          </select>
+        </div>
+        <div class="ce-hint${c.role === "chest" ? "" : " hidden"}">
+          <label>Where to look <span class="opt">(shown while they're still hunting for it)</span></label>
+          <p class="qhint">A pin gets a six-year-old within about ten metres of the box. This is what covers the last ten.</p>
+          <input class="ch-text" maxlength="200" placeholder="e.g. behind the big tree by the picnic table" value="${escapeAttr(c.hint)}" />
+          <div class="ch-photo">
+            <div class="ch-shot${c.hintImg ? "" : " empty"}"${c.hintImg ? ` style="background-image:url('/api/prize?img=${escapeAttr(c.hintImg)}')"` : ""}></div>
+            <div class="ch-photo-side">
+              <label class="ch-pick">📷 Photo of the hiding place<input type="file" accept="image/*" class="ch-file" hidden /></label>
+              <button class="ghost ch-clear${c.hintImg ? "" : " hidden"}">Remove photo</button>
+              <span class="status ch-meta"></span>
+            </div>
+          </div>
         </div>
         <div class="ce-quiz">
           <label>Question for this spot <span class="opt">(optional)</span></label>
@@ -445,6 +679,55 @@
         cards.splice(i, 1); renderCards();
       };
 
+      // ---- which area, and what this sticker does in it ----
+      const areaSel = el.querySelector(".ce-area"), roleSel = el.querySelector(".ce-role");
+      const hintBox = el.querySelector(".ce-hint");
+      areaSel.onchange = () => {
+        c.section = areaSel.value;
+        if (!c.section) c.role = "stop";            // a loose card gates nothing
+        renderAreas(); renderCards();               // headings and the area summaries move
+      };
+      roleSel.onchange = () => {
+        const want = roleSel.value;
+        // One start and one chest per area, enforced here rather than at publish time so
+        // you find out now, not after the sheet is already taped to a lamp post.
+        if (want !== "stop" && roleTaken(c.section, want, c)) {
+          const held = inArea(c.section).find((o) => o !== c && o.role === want);
+          const word = want === "start" ? "start" : "treasure chest";
+          if (!confirm(`This area already has a ${word}: "${held.name || held.code}".\n\nMake THIS one the ${word} instead? The other becomes an ordinary sticker to find.`)) {
+            roleSel.value = c.role; return;
+          }
+          held.role = "stop";
+        }
+        c.role = want;
+        renderAreas(); renderCards();
+      };
+
+      // ---- the chest's "behind the big tree" hint, and a photo of the spot ----
+      const hintText = el.querySelector(".ch-text");
+      hintText.oninput = () => (c.hint = hintText.value);
+      const shot = el.querySelector(".ch-shot"), meta = el.querySelector(".ch-meta"),
+            clearBtn = el.querySelector(".ch-clear"), file = el.querySelector(".ch-file");
+      file.onchange = async () => {
+        const f = file.files && file.files[0];
+        file.value = "";
+        if (!f) return;
+        const old = c.hintImg;
+        const id = await upload(f, meta);
+        if (!id) return;
+        c.hintImg = id;
+        if (old) dropImage(old);                    // never leave an orphan in the store
+        shot.style.backgroundImage = `url('/api/prize?img=${id}')`;
+        shot.classList.remove("empty");
+        clearBtn.classList.remove("hidden");
+      };
+      clearBtn.onclick = () => {
+        if (c.hintImg) dropImage(c.hintImg);
+        c.hintImg = "";
+        shot.style.backgroundImage = ""; shot.classList.add("empty");
+        clearBtn.classList.add("hidden"); meta.textContent = "";
+      };
+
       const qBox = el.querySelector(".cq-q");
       qBox.oninput = () => (c.q = qBox.value);
       el.querySelectorAll(".cq-a").forEach((a) => { a.oninput = () => (c.choices[+a.dataset.k] = a.value); });
@@ -480,8 +763,7 @@
       };
 
       box.appendChild(el);
-    });
-    if (!cards.length) box.innerHTML = `<p class="note">No stickers placed yet. Print a sheet above, tape one somewhere good, then type its code in below.</p>`;
+    }
   }
 
   // ---- add the sticker you just taped up, by the code printed on it ----
@@ -497,8 +779,13 @@
       if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
       return;
     }
-    cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code, acc: null, q: "", choices: [], correct: 0 });
-    renderCards();
+    // Lands in whichever area you were last working in — you add a park's stickers one
+    // walk at a time, so that's nearly always the right guess.
+    const lastArea = cards.length ? cards[cards.length - 1].section : (areas[0] && areas[0].id) || "";
+    cards.push({ emoji: "🌳", name: "", lat: "", lng: "", park: true, code, acc: null,
+      section: areaById(lastArea) ? lastArea : "", role: "stop", hint: "", hintImg: "",
+      q: "", choices: [], correct: 0 });
+    renderAreas(); renderCards();
     $("newCardCode").value = "";
     setAddStatus("Added! Drop the pin while you're standing at it. 📍", "ok");
     const el = $("cards").querySelector(`[data-code="${code}"]`);
@@ -511,7 +798,9 @@
   $("addBtn").onclick = addByCode;
   $("newCardCode").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addByCode(); } });
   $("clearBtn").onclick = () => {
-    if (!cards.length || confirm("Remove ALL cards and start fresh? (Nothing is published until you tap Publish.)")) { cards = []; renderCards(); }
+    if (!cards.length || confirm("Remove ALL cards and areas and start fresh? (Nothing is published until you tap Publish.)")) {
+      cards = []; areas = []; renderAreas(); renderCards();
+    }
   };
 
   // ---- publish ----
@@ -522,8 +811,33 @@
       code: c.code,
       ll: hasPin(c) ? [+c.lat, +c.lng] : null,
       park: !!c.park,
+      section: areaById(c.section) ? c.section : "",
+      role: areaById(c.section) ? c.role : "stop",
+      hint: c.role === "chest" ? (c.hint || "").trim() : "",
+      hintImg: c.role === "chest" ? (c.hintImg || "") : "",
       quiz: toQuiz(c),
     }));
+  }
+  // Only areas that a card actually points at. A name typed in and never used would
+  // otherwise put an empty row on every kid's home screen.
+  function toSections() {
+    const used = new Set(cards.map((c) => c.section).filter(Boolean));
+    return areas.filter((a) => used.has(a.id)).map((a) => ({ id: a.id, name: (a.name || "").trim(), emoji: a.emoji || "📍" }));
+  }
+
+  // An area with stickers but no chest can never pay off, and one with no start shows
+  // all its pins from the off. Neither is fatal — you're often half-way through setting
+  // one up — so this warns rather than blocks.
+  function areaWarnings() {
+    const out = [];
+    toSections().forEach((a) => {
+      const mine = inArea(a.id);
+      const bits = [];
+      if (!mine.some((c) => c.role === "start")) bits.push("no 🚩 start sticker (all its pins show straight away)");
+      if (!mine.some((c) => c.role === "chest")) bits.push("no 🎁 chest (nothing to find at the end)");
+      if (bits.length) out.push(`• ${a.name || a.id}: ${bits.join(", ")}`);
+    });
+    return out;
   }
   // a question needs at least two answers to be a choice; anything less is skipped
   function toQuiz(c) {
@@ -539,44 +853,58 @@
   // Publishing sends the WHOLE set, so a page opened before you added a card on another
   // phone would quietly delete it. Check what's live first and offer to keep anything
   // this page has never seen — you're often editing from two devices in one afternoon.
-  async function keepStrays(stops) {
-    let live = null;
+  async function keepStrays(stops, sections) {
+    let live = null, liveSections = [];
     try {
       const r = await fetch("/api/config", { cache: "no-store" });
-      if (r.ok) { const c = await r.json(); if (c && Array.isArray(c.stops)) live = c.stops; }
-    } catch { return stops; }
-    if (!live) return stops;
+      if (r.ok) {
+        const c = await r.json();
+        if (c && Array.isArray(c.stops)) live = c.stops;
+        if (c && Array.isArray(c.sections)) liveSections = c.sections;
+      }
+    } catch { return { stops, sections }; }
+    if (!live) return { stops, sections };
     const mine = new Set(stops.map((s) => s.code));
     const strays = live.filter((s) => s && s.code && !mine.has(normCode(s.code)));
-    if (!strays.length) return stops;
+    if (!strays.length) return { stops, sections };
     const named = strays.map((s) => (s.name || "").trim() || s.code).join(", ");
-    return confirm(`The database has ${strays.length} card(s) this page doesn't know about:\n\n${named}\n\n` +
-      `OK = keep them.  Cancel = publish only the ${stops.length} card(s) on this screen (the others are deleted).`)
-      ? stops.concat(strays.map((s) => ({ ...s, code: normCode(s.code) })))
-      : stops;
+    if (!confirm(`The database has ${strays.length} card(s) this page doesn't know about:\n\n${named}\n\n` +
+      `OK = keep them.  Cancel = publish only the ${stops.length} card(s) on this screen (the others are deleted).`)) {
+      return { stops, sections };
+    }
+    // Keeping a stray means keeping the AREA it belongs to as well, or the card comes
+    // back stripped of its role and an area you set up on another phone quietly vanishes.
+    const kept = strays.map((s) => ({ ...s, code: normCode(s.code) }));
+    const have = new Set(sections.map((a) => a.id));
+    const rescued = liveSections.filter((a) => a && a.id && !have.has(a.id) && kept.some((s) => s.section === a.id));
+    return { stops: stops.concat(kept), sections: sections.concat(rescued) };
   }
 
   $("publishBtn").onclick = async () => {
-    let stops = toStops();
+    let stops = toStops(), sections = toSections();
     if (!stops.length) { setStatus("Add at least one card first.", "err"); return; }
 
+    const warn = areaWarnings();
+    if (warn.length && !confirm(`Some areas aren't finished:\n\n${warn.join("\n")}\n\nPublish anyway?`)) return;
+
     const btn = $("publishBtn"); btn.disabled = true; setStatus("Publishing…", "");
-    stops = await keepStrays(stops);
+    ({ stops, sections } = await keepStrays(stops, sections));
     const live = stops.filter((s) => s.name && s.ll).length;
     const waiting = stops.length - live;
     try {
       const r = await fetch("/api/config", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: SETUP_CODE, stops, newHunt: $("newHunt").checked }),
+        body: JSON.stringify({ code: SETUP_CODE, stops, sections }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) { setStatus(j.error || j.note || "Publish failed. Is the site online with its database connected?", "err"); btn.disabled = false; return; }
       // keep this device's game in sync immediately
-      try { localStorage.setItem("nq_config", JSON.stringify({ season: j.season, stops })); } catch {}
-      cards = stops.map(fromStop); renderCards();   // anything merged in above is ours now
-      setStatus(`✅ Published ${j.count} card(s) — ${live} live for kids` +
-        (waiting ? `, ${waiting} still needing a name or a pin` : "") +
-        (j.newHunt ? ` — new hunt, Season ${j.season}` : "") + ".", "ok");
+      try { localStorage.setItem("nq_config", JSON.stringify({ sections, stops })); } catch {}
+      cards = stops.map(fromStop);                  // anything merged in above is ours now
+      areas = sections.map((a) => ({ id: a.id, name: a.name || "", emoji: a.emoji || "📍" }));
+      renderAreas(); renderCards();
+      setStatus(`✅ Published ${j.count} card(s) in ${j.areas} area(s) — ${live} live for kids` +
+        (waiting ? `, ${waiting} still needing a name or a pin` : "") + ". Nobody's stamps were reset.", "ok");
     } catch (e) {
       setStatus("Publish failed (no connection). Try again when online.", "err");
     }
@@ -584,10 +912,10 @@
   };
   function setStatus(t, cls) { const s = $("pubStatus"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
 
-  // ---- start over: wipe the database back to a clean Season 1 ----
+  // ---- start over: wipe YOUR records (this cannot reach the kids' phones) ----
   async function wipe(keepCards) {
     const what = keepCards
-      ? "Wipe ALL scans, players and tallies?\n\nYour cards and pins stay. The hunt goes back to Season 1, so every phone clears its stamps."
+      ? "Wipe ALL scans, players and tallies?\n\nYour cards and pins stay. This clears YOUR dashboard only — the kids' stamps live on their own phones and stay put."
       : "Wipe EVERYTHING, including your cards and pins?\n\nYou'll have to add every stop again from scratch.";
     if (!confirm(what)) return;
     if (!confirm("Last chance — this cannot be undone. Go ahead?")) return;
@@ -599,7 +927,7 @@
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) { setWipeStatus(j.error || j.note || "Wipe failed.", "err"); return; }
-      setWipeStatus(`✅ Deleted ${j.deleted} record(s) — back to Season 1${j.keptCards ? ", cards kept" : ", cards cleared"}.`, "ok");
+      setWipeStatus(`✅ Deleted ${j.deleted} record(s)${j.keptCards ? ", cards kept" : ", cards cleared"}. The kids' own stamps are untouched.`, "ok");
       // this device was holding the old hunt in localStorage too
       try { localStorage.removeItem("nq_config"); } catch {}
       cards = j.keptCards ? cards : [];

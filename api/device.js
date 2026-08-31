@@ -41,9 +41,6 @@ export default async function handler(req, res) {
           .filter((v) => Number.isInteger(v) || (typeof v === "string" && /^[a-f0-9]{4,12}$/i.test(v)))
           .slice(0, 50)
       : [];
-    const season = Number.isInteger(b.season) ? b.season : null;                 // current season
-    const lifetimeFound = Number.isInteger(b.lifetimeFound) ? b.lifetimeFound : 0; // all-time treasures
-    const seasonsPlayed = Number.isInteger(b.seasonsPlayed) ? b.seasonsPlayed : 0;
     const now = Date.now();
 
     // preserve the original "created" time if this device already has a record
@@ -53,10 +50,13 @@ export default async function handler(req, res) {
       if (prev && typeof prev === "object" && prev.created) created = prev.created;
     } catch { /* ignore */ }
 
-    // which prize they chose, so the grown-up knows what to go and hide
-    const prize = (b.prize || "").toString().slice(0, 40);
+    // A prize under the retired photo-picker flow. New players never set this — their
+    // prize is a real thing in a real box — but anyone mid-way through the old flow
+    // keeps theirs rather than having it quietly dropped on the next sync.
+    let prize = (b.prize || "").toString().slice(0, 40);
+    if (!prize) { try { const p = await redis.hget(PROFILES, session); if (p && p.prize) prize = p.prize; } catch {} }
 
-    const record = { id: session, name, mascot, visited, season, lifetimeFound, seasonsPlayed, prize, created, updated: now };
+    const record = { id: session, name, mascot, visited, prize, created, updated: now };
     await redis.hset(PROFILES, { [session]: record }); // stored as one JSON value
 
     res.status(200).json({ ok: true });

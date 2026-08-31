@@ -7,7 +7,7 @@
 // Credentials are auto-injected by Vercel when you connect the Upstash store to this
 // project (KV_REST_API_URL / KV_REST_API_TOKEN). Nothing is hard-coded.
 import { Redis } from "@upstash/redis";
-import { pushToPhones, pushReady } from "./_lib/push.js";
+import { notify, anyChannel } from "./_lib/notify.js";
 
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -16,100 +16,13 @@ const redis = url && token ? new Redis({ url, token }) : null;
 const P = "nq:"; // Neighborhood Quest namespace
 const today = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
 
-// ---- "sticker missing" email alert -------------------------------------------------
-// When a kid reports a sign is gone, email the hider so it can be reprinted. Sent via
-// Resend's REST API (plain fetch — no extra npm dependency).
-//
-// Setup: add RESEND_API_KEY in the Vercel project's Environment Variables. Optional
-// overrides: ALERT_EMAIL (recipient) and ALERT_FROM (sender). With no key set, the
-// alert is skipped silently and scan logging carries on as normal.
-const ALERT_TO = process.env.ALERT_EMAIL || "branskar01@gmail.com";
-const ALERT_FROM = process.env.ALERT_FROM || "Neighborhood Quest <onboarding@resend.dev>";
-const ALERT_COOLDOWN_S = 12 * 60 * 60; // one email per stop per 12h, so a broken sign can't spam
+// ---- alerts -------------------------------------------------------------------------
+// Every channel (web push, email, text-via-email-gateway, ntfy) lives in _lib/notify.js,
+// shared with the feedback endpoint so a comment from a child reaches the same pocket a
+// missing sticker does. None of it is required: with nothing configured, notify() reports
+// "not sent" on every channel and scan logging carries on exactly as before.
+const ALERT_COOLDOWN_S = 12 * 60 * 60; // one alert per stop per 12h, so a broken sign cannot spam
 const SETUP_CODE = process.env.ADMIN_CODE || "8979";   // same gate setup.html uses
-
-// ---- getting told, on a phone, for nothing ------------------------------------------
-// ALERT_SMS: a carrier's email-to-SMS gateway address, e.g. 2535550123@tmomail.net
-//   (T-Mobile), @vtext.com (Verizon), @txt.att.net (AT&T). The same email send turns
-//   into a real text message, free. Carriers filter these hard, so treat it as a bonus.
-// NTFY_TOPIC: a topic on the free ntfy.sh — install the ntfy app, subscribe to the same
-//   topic, and this is an instant push notification with no account and no cost. Pick
-//   something unguessable: anyone who knows the topic name can read it.
-const ALERT_SMS = (process.env.ALERT_SMS || "").trim();
-const NTFY_TOPIC = (process.env.NTFY_TOPIC || "").trim();
-const NTFY_HOST = (process.env.NTFY_HOST || "https://ntfy.sh").replace(/\/+$/, "");
-
-// Every mail path returns a plain-English status instead of failing silently, so the
-// "Send me a test alert" button in setup.html can say exactly what went wrong.
-async function sendMail(subject, text, to) {
-  const dest = to || ALERT_TO;
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return "not sent — RESEND_API_KEY isn't set on this project (Vercel → Settings → Environment Variables → add it, then redeploy)";
-  let r;
-  try {
-    r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: ALERT_FROM, to: [dest], subject, text }),
-    });
-  } catch (e) {
-    return "not sent — couldn't reach Resend: " + String((e && e.message) || e);
-  }
-  if (!r.ok) {
-    const body = await r.text().catch(() => "");
-    return `not sent — Resend replied ${r.status}: ${body.slice(0, 300)}`;
-  }
-  return `sent to ${dest}`;
-}
-
-// A push notification through ntfy.sh — an alternative to the phone alerts above for
-// anyone who'd rather subscribe in the ntfy app than turn on notifications here.
-async function sendNtfy(title, body) {
-  if (!NTFY_TOPIC) return null;
-  try {
-    const r = await fetch(NTFY_HOST + "/" + encodeURIComponent(NTFY_TOPIC), {
-      method: "POST",
-      // HTTP headers must be plain ASCII, so the emoji goes in Tags, not Title
-      headers: { Title: title.replace(/[^\x20-\x7E]/g, "").trim() || "Neighborhood Quest", Priority: "high", Tags: "mag" },
-      body,
-    });
-    return r.ok ? `sent to ${NTFY_HOST.replace(/^https?:\/\//, "")}/${NTFY_TOPIC}` : `not sent — ntfy replied ${r.status}`;
-  } catch (e) {
-    return "not sent — couldn't reach " + NTFY_HOST;
-  }
-}
-
-// Fire every channel that's been set up and report on all of them. One working channel
-// is a success, so a missing Resend key doesn't hide a phone alert that got through.
-// Phone notifications come first: they're the ones that actually reach a pocket.
-async function notify(subject, long, short) {
-  const bits = [];
-  let ok = false;
-  const phones = await pushToPhones(subject, short || long, "nq-" + Date.now(), "./stats.html")
-    .catch((e) => "not sent — " + String((e && e.message) || e));
-  bits.push("phones: " + phones);
-  if (/^sent/.test(phones)) ok = true;
-
-  const mail = await sendMail(subject, long);
-  bits.push("email: " + mail);
-  if (/^sent/.test(mail)) ok = true;
-
-  if (ALERT_SMS) {
-    const sms = await sendMail(subject, short || long, ALERT_SMS);
-    bits.push("text: " + sms);
-    if (/^sent/.test(sms)) ok = true;
-  }
-  const ntfy = await sendNtfy(subject, short || long);
-  if (ntfy) {
-    bits.push("ntfy: " + ntfy);
-    if (/^sent/.test(ntfy)) ok = true;
-  }
-  return { ok, text: bits.join(" · ") };
-}
-
-// Is there anywhere to send an alert at all? Checked before the cooldown key is claimed,
-// so a project with nothing set up doesn't silently burn its one-per-12-hours slot.
-const anyChannel = () => !!(process.env.RESEND_API_KEY || NTFY_TOPIC || pushReady());
 
 // ---- naming the sticker -------------------------------------------------------------
 // An alert should say "🏀 Basketball court", never "stop 3". The app sends the card's
@@ -117,15 +30,23 @@ const anyChannel = () => !!(process.env.RESEND_API_KEY || NTFY_TOPIC || pushRead
 // since before that was added sends nothing, so fall back to the published cards.
 //
 // A stop's id is its POSITION in that list — see nqNormalizeStop() in data.js, which
-// numbers only the cards that have both a name and a pin, so the same filter has to be
-// applied here or the numbering slides.
+// numbers only the cards that have both a name and a pin, so THE SAME FILTER HAS TO BE
+// APPLIED HERE or the numbering slides and every alert names the wrong sticker. If you
+// change what data.js filters out, change this line with it.
+//
+// With several parks running at once the area matters as much as the sticker, so an
+// alert reads "🏆 Lakeland Treasure (Lakeland Hills Park)" rather than just "stop 6".
 async function stopLabel(stop, stopName) {
   try {
     const cfg = await redis.get(P + "config");
     const live = (cfg && Array.isArray(cfg.stops) ? cfg.stops : [])
       .filter((s) => s && (s.name || "").toString().trim() && Array.isArray(s.ll) && s.ll.length === 2);
     const s = live[stop - 1];
-    if (s && s.name) return ((s.emoji ? s.emoji + " " : "") + s.name).trim();
+    if (s && s.name) {
+      const area = (Array.isArray(cfg.sections) ? cfg.sections : []).find((x) => x && x.id === s.section);
+      const chest = s.role === "chest" ? "🎁 " : "";
+      return (chest + (s.emoji ? s.emoji + " " : "") + s.name + (area ? ` (${area.name})` : "")).trim();
+    }
   } catch { /* a vaguer alert beats no alert */ }
   return stopName || "stop " + stop;
 }

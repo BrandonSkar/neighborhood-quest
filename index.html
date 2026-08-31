@@ -41,14 +41,12 @@
       <div id="homeSpeech" class="home-speech">Tap me to chat!</div>
     </div>
     <h1 id="homeGreeting" class="home-hi">Hi, Explorer!</h1>
-    <div class="home-progress">
-      <div class="hp-bar"><div id="hpFill" class="hp-fill"></div></div>
-      <div class="hp-text">🏅 <b id="hpNow">0</b> / <b id="hpTotal">8</b> treasures found</div>
-    </div>
+    <!-- one row per area: each park is its own hunt, with its own count and its own
+         chest. Tap a row to open the map framed on that park. -->
+    <div id="areaList" class="area-list"></div>
     <div class="lifetime">
       <div class="life-strip">
-        <span class="life-pill">🏅 <b id="lifeTotal">0</b> all-time</span>
-        <span class="life-pill">🗓️ Season <b id="lifeSeason">1</b></span>
+        <span class="life-pill">🏅 <b id="lifeTotal">0</b> found all-time</span>
       </div>
       <div id="badgeRow" class="badge-row"></div>
     </div>
@@ -109,6 +107,13 @@
       <div class="gn-bar"><div id="gnFill" class="gn-fill"></div></div>
       <p id="gnSteps" class="gn-steps">Finding you on the map… 📍</p>
       <button id="gnCompass" class="gn-compass hidden">🧭 Point me the way</button>
+    </div>
+
+    <!-- the last ten metres a GPS pin can't do: "behind the big tree", and a photo -->
+    <div id="stopHint" class="stop-hint hidden">
+      <span class="sh-tag">🔦 Where to look</span>
+      <div id="stopHintShot" class="sh-shot hidden"></div>
+      <p id="stopHintText" class="sh-text"></p>
     </div>
 
     <div id="missionWrap" class="mission">
@@ -181,6 +186,41 @@
     <!-- deliberately NOT a "play again" reset: a child tapping the only button on a
          celebration card must never lose the stamps they just earned -->
     <button id="finishDone" class="big-btn">See my passport 📖</button>
+  </div>
+</div>
+
+<!-- ============ A CHEST APPEARED ============ -->
+<!-- The one time the guide interrupts unprompted: every sticker in an area is found,
+     so its hidden treasure is now on the map. -->
+<div id="revealModal" class="overlay hidden">
+  <div class="card reveal-card">
+    <div class="reveal-chest">🎁</div>
+    <div class="reveal-guide-row">
+      <span id="revealGuide" class="reveal-guide">🦊</span>
+      <p id="revealSay" class="reveal-say">I found a new treasure!</p>
+    </div>
+    <h2 id="revealName">Hidden Treasure</h2>
+    <p id="revealHint" class="reveal-hint hidden"></p>
+    <button id="revealGo" class="big-btn">Show me on the map! 🗺️</button>
+    <button id="revealLater" class="ghost-btn">Later</button>
+  </div>
+</div>
+
+<!-- ============ WHAT DID YOU THINK? ============ -->
+<!-- Asked once, straight after a chest is opened. Goes to the grown-up's dashboard
+     and nowhere else — no other player ever sees any of this. -->
+<div id="fbModal" class="overlay hidden">
+  <div class="card fb-card">
+    <h2>How was the hunt? 💌</h2>
+    <p class="fb-sub">Only the person who hid the treasures will see this.</p>
+    <div class="fb-votes">
+      <button id="fbUp" class="fb-vote">👍</button>
+      <button id="fbDown" class="fb-vote">👎</button>
+    </div>
+    <textarea id="fbComment" class="fb-comment" maxlength="300" rows="3"
+              placeholder="Tell them anything you like! (optional)"></textarea>
+    <button id="fbSend" class="big-btn" disabled>Tell them! 💌</button>
+    <button id="fbSkip" class="ghost-btn">No thanks</button>
   </div>
 </div>
 

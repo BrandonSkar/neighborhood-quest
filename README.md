@@ -52,13 +52,20 @@ scanning each location's unique code — with a cute "find + stamp" animation.
   as a find. Either way `stats.html` shows which sign to reprint.
 - **Stamps are keyed by each stop's QR `code`**, not its position in the list, so adding,
   deleting or reordering cards never re-points anyone's existing stamps.
-- **A stamp is never taken away by the app.** The stop's mission and question always come
-  first, and the "you got them all" party waits until the child leaves that card — so a
-  hunt with only one sticker out still gets played properly. The party's button opens the
-  passport; there is no reset in the kid's app but **🗑️ Delete my data**, and only a new
-  season clears stamps.
-- **Lifetime totals + badges** on the home hub (all-time treasures, season, achievements)
-  so returning players are rewarded across seasons.
+- **A stamp is never taken away. By anything.** There are no seasons and no resets:
+  publishing adds and edits cards, and that's all it does. Add a fifth sticker to a park
+  somebody finished last month and they simply get one more pin to go back for. The only
+  thing that clears a phone is **🗑️ Delete my data** on that phone.
+- **Areas**: a hunt is split into parks, each its own little quest. Only an area's
+  **🚩 start** sticker shows on the map until someone scans it; that reveals the area's
+  **📍 stops**; finding them all reveals a **🎁 chest** — bigger, gold, announced out loud
+  by the guide — with a real prize hidden at it. Three parks, three chests, three prizes,
+  running independently. See [Areas, starts and chests](#areas-starts-and-chests).
+- **A stamp is never taken away by the app either.** The stop's mission and question
+  always come first, and the "you got them all" party waits until the child leaves that
+  card — so a hunt with only one sticker out still gets played properly.
+- **All-time total + badges** on the home hub, with one progress row per area, so a child
+  at one park sees that park rather than a single number spanning three of them.
 - **Tap your buddy to chat**: on the home hub he hops, his bubble pops, and he says
   something new — his own lines mixed with ones that use the kid's name and know how many
   treasures are left. He never repeats himself twice running.
@@ -87,7 +94,9 @@ scanning each location's unique code — with a cute "find + stamp" animation.
 | `push-toggle.js` | The "🔔 Alerts on this phone" switch, shared by both setup pages |
 | `api/scan.js` | Records one anonymous scan event (Upstash Redis) |
 | `api/stats.js` | Returns aggregate stats for the dashboard (needs the code) |
-| `api/reset.js` | The "Start over" wipe — clears `nq:*` and resets to Season 1 |
+| `api/reset.js` | The "Start over" wipe — clears `nq:*` (your records only) |
+| `api/feedback.js` | 👍/👎 and a comment after a chest is opened — readable only with the setup code |
+| `api/_lib/notify.js` | Every alert channel (push, email, text, ntfy), shared by `scan.js` and `feedback.js` |
 | `vendor/` | Bundled Leaflet (map) + jsQR (in-app sticker scanner) — no CDN at runtime |
 | `manifest.webmanifest` / `sw.js` / `icon-*.png` | PWA install + offline for the kids' game |
 | `setup.webmanifest` | Installs the hider's pages as their own app, **Quest Setup**, apart from the game |
@@ -164,10 +173,44 @@ The stop's own card and question always come first — the prize waits until the
 and it replaces the generic "you did it" card rather than stacking on top of it. They tap
 one, confirm, and get the hiding-place photo with your words under it. It's then parked on
 a 🎁 button on the home hub so it can never be lost, and the pictures are pre-loaded once
-they're one find away so the big moment isn't five spinners on a weak signal. The
-dashboard's **Prize picked** column tells you which one to go and hide.
+they're one find away so the big moment isn't five spinners on a weak signal.
 
-A new season clears the claim, so the next hunt can win a prize again.
+**This flow has been superseded by the chests** — a prize is now a real thing in a real
+box you walk to, so the picker no longer fires on a find count. It stays wired up for
+anyone who picked a prize under the old flow and hasn't collected it yet, and its image
+store (`/api/prize?img=`) is where the chests' hiding-place photos live.
+
+## Areas, starts and chests
+A hunt is split into **areas** — one per park. Each area holds three kinds of sticker,
+set on its card in `setup.html`:
+
+| | what it does |
+|---|---|
+| 🚩 **Start** | The only pin an untouched area shows. Scanning it reveals the rest. |
+| 📍 **Stop** | An ordinary sticker. Appears once the area is open. |
+| 🎁 **Chest** | Hidden until every stop is found, then appears bigger and gold, announced by the guide. A real cache with a real prize in it. |
+
+One start and one chest per area; as many stops as you like. An area with neither still
+works — its pins just all show from the off, which is what `setup.html` warns you about
+before publishing.
+
+Two things are deliberately forgiving, both the same principle — **never refuse a child
+standing in front of a real sticker**:
+
+- Finding *any* stop opens its area, not just the start. Kids don't arrive at parks
+  through the front gate.
+- Anything already found stays visible forever. Add a sticker to a park somebody has
+  finished and their chest does **not** disappear again; the park just has one more pin
+  on it whenever they fancy going back.
+
+A chest's card also takes a **hiding-place photo and a hint** ("behind the big tree by
+the picnic table"). A GPS pin gets a six-year-old within about ten metres of a box; that
+line is what covers the last ten. It shows while they're hunting and disappears once
+they've found it.
+
+Opening a chest is the one moment the app asks for anything back: a 👍/👎 and an optional
+comment, which go to `/api/feedback` and appear on **your** dashboard. Reading them needs
+the setup code, and nothing written there is ever shown to another player.
 
 ## Alerts: getting told, on your phone, for nothing
 You're told two things: **a sticker has just been scanned** — who found it, which spot,
@@ -178,10 +221,11 @@ The scan alert is the chatty one: one per find, per child — a code typed in by
 counts, since that stamps the stop exactly like a camera scan. Every alert names the
 sticker the way your card does (*"🏀 Basketball court"*): the app sends the name it's
 showing, and the server falls back to the published cards, so a phone running a long-
-cached `app.js` still gets a named alert instead of "stop 3". It's also the prize warning —
-*"Ivy found Owl Tree (3 of 4)"* means somebody is one sticker away from being shown the
-hiding place, so put the thing there. The pick itself sends nothing; the dashboard's
-**Prize picked** column says which prize to take.
+cached `app.js` still gets a named alert instead of "stop 3". With areas running, it names
+the park too — *"🎁 🏆 Lakeland Treasure (Lakeland Hills Park)"* — so you can tell three
+hunts apart at a glance. It's also the chest warning: *"Ivy found Owl Tree (3 of 4)"*
+means somebody is one sticker away from a chest appearing, so make sure the prize is
+actually in the box.
 
 Worth knowing before you switch on email or a text gateway: that's one message per scan
 as well, and a hunt with a few kids and eight stops adds up fast. Push (below) and ntfy
@@ -277,15 +321,18 @@ looked wrong.)
 
 ## Starting over
 `/setup.html` → **Start over**:
-- **🧹 Wipe all data, keep my cards** — clears every scan, player, tally and alert, keeps
-  your stops and pins, and puts the hunt back to **Season 1**.
+- **🧹 Wipe all data, keep my cards** — clears every scan, player, tally and alert, and
+  keeps your stops and pins.
 - **💣 Wipe everything, cards too** — the above plus the published cards.
 
 Both ask twice and can't be undone. Only `nq:*` keys are touched, so anything else in a
-shared Upstash database is safe. Each phone notices the season changed the next time it
-opens and clears its own stamps; to wipe a phone right now, use **🗑️ Delete my data** on
-its home screen. `scripts/reset-nq.mjs` does the same job from a terminal if you'd rather
-(needs `NQ_URL` / `NQ_TOKEN`).
+shared Upstash database is safe.
+
+**Neither of these reaches the kids' phones.** Their stamps live in their own browser
+storage, and with seasons gone there's no longer any way to invalidate them remotely — so
+this clears *your* records and nothing else. A child clears their own with **🗑️ Delete my
+data** on their home screen. `scripts/reset-nq.mjs` does the same job from a terminal if
+you'd rather (needs `NQ_URL` / `NQ_TOKEN`).
 
 The in-app camera needs a **secure context**, so it only runs on `https://` (or
 `http://localhost`) — over `file://` the button explains to use the phone's camera app.
