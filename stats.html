@@ -192,7 +192,6 @@ function render(d, live){
   document.getElementById("mode").textContent = live ? "live database" : "local only";
   document.getElementById("mode").className = "badge " + (live ? "live" : "local");
   document.getElementById("cScans").textContent = d.scans||0;
-  document.getElementById("cUniq").textContent = d.uniqueVisitors||0;
   document.getElementById("cToday").textContent = d.today!=null ? d.today : "—";
   document.getElementById("cComp").textContent = d.completions||0;
   document.getElementById("cPlayers").textContent = d.playerCount || (d.players ? d.players.length : 0) || 0;
