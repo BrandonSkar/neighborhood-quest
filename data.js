@@ -180,7 +180,7 @@ let STOPS = [
     ll: [47.2601, -122.2108],
     hint: "Look low, behind the big tree by the picnic table.",
     intro: "You found the hidden treasure of Lakeland Hills Park! 🎉",
-    easy: "Open it up — take one for you and one for a friend. Remember to share! 🎁",
+    easy: "Take one for you and one for a friend — remember to share! 🎁",
   },
   {
     id: 10, name: "School Trail Treasure", emoji: "🎁", sticker: "🏆", color: "#ffd84b", pos: [36, 33],
@@ -189,7 +189,7 @@ let STOPS = [
     ll: [47.2556, -122.2148],
     hint: "Check the low wall near the school sign.",
     intro: "You found the hidden treasure of the School Trail! 🎉",
-    easy: "Open it up — take one for you and one for a friend. Remember to share! 🎁",
+    easy: "Take one for you and one for a friend — remember to share! 🎁",
   },
 ];
 
@@ -252,7 +252,7 @@ function nqNormalizeStop(s, i) {
   const easyBy = {
     start: `Look at your map — the treasures around ${name} just appeared! 🗺️`,
     stop: `You made it to ${name}! Look all around and find something ${emoji}.`,
-    chest: `Open it up — take one for you and one for a friend. Remember to share! 🎁`,
+    chest: `Take one for you and one for a friend — remember to share! 🎁`,
   };
   return {
     id: i + 1,
