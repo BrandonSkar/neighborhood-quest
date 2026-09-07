@@ -407,15 +407,16 @@ function startGeo() {
   if (geoWatchId != null || !("geolocation" in navigator)) return;
   try {
     geoWatchId = navigator.geolocation.watchPosition(
-      (p) => onFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
+      (p) => onFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy, p.coords.heading, p.coords.speed),
       () => {}, // denied/unavailable -> the map just works without the dot
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     );
   } catch {}
 }
-function onFix(lat, lng, acc) {
+function onFix(lat, lng, acc, heading, speed) {
   lastFix = [lat, lng];
   lastAcc = typeof acc === "number" && isFinite(acc) ? acc : null;
+  noteGpsHeading([lat, lng], heading, speed);
   if (lmap) {
     const ll = [lat, lng];
     if (!youMarker) {
@@ -866,6 +867,43 @@ let navStop = null;                  // the stop the open card is guiding to
 let navBearing = null;               // direction to it, degrees clockwise from north
 let navLastDist = null, navWrong = 0;
 let headingDeg = null, compassOn = false;   // which way the phone is actually pointing
+let compassAsked = false;                   // ...and whether we already put the question
+
+// ---- facing, WITHOUT the compass ----
+// An iPhone will not hand over the compass until somebody taps through a permission
+// prompt, and a six-year-old holding a borrowed phone often never will. But a phone
+// that is MOVING already knows which way it is going, and that costs no permission
+// beyond the location they have already allowed: the GPS fix carries a course. While
+// a child is walking -- which is all of a scavenger hunt -- it is all the arrow needs.
+let gpsHeading = null, gpsHeadingAt = 0, headPrev = null;
+const GPS_HEAD_TTL = 30000;    // stand still long enough and your last course means nothing
+const GPS_HEAD_SPEED = 0.6;    // m/s; below a dawdling walk it is drift, not direction
+const GPS_HEAD_FRESH = 15000;  // two fixes further apart than this are not one walk
+
+function noteGpsHeading(ll, heading, speed) {
+  const now = Date.now(), prev = headPrev;
+  headPrev = { ll, t: now };
+  let h = null;
+  // what the phone reports, when it is moving fast enough to mean it (iOS sends -1,
+  // and 0 is a real bearing, so this has to test the numbers rather than truthiness)
+  if (typeof heading === "number" && isFinite(heading) && heading >= 0 &&
+      typeof speed === "number" && isFinite(speed) && speed >= GPS_HEAD_SPEED) h = heading;
+  // ...otherwise work it out ourselves from where they were a moment ago, as long as
+  // they really moved: anything smaller than the phone's own error is just GPS wobble
+  else if (prev && now - prev.t < GPS_HEAD_FRESH &&
+           haversine(prev.ll, ll) > Math.max(8, accNow() / 2)) h = bearingTo(prev.ll, ll);
+  if (h == null) return;
+  gpsHeading = h;
+  gpsHeadingAt = now;
+}
+
+// The compass wins whenever we have it, because it works standing still. A recent
+// course is the fallback. With neither, the dial goes north-up and says so in words.
+function facingDeg() {
+  if (headingDeg != null) return headingDeg;
+  if (gpsHeading != null && Date.now() - gpsHeadingAt < GPS_HEAD_TTL) return gpsHeading;
+  return null;
+}
 
 function bearingTo(from, to) {
   const rad = (d) => (d * Math.PI) / 180, deg = (r) => (r * 180) / Math.PI;
@@ -1023,7 +1061,7 @@ function updateStopGuide() {
   }
   say.textContent = GUIDE_LINES[band][navLine](ctx);
 
-  const way = headingDeg != null ? "Follow my arrow ⬆️" : `Head ${dirName(navBearing)}`;
+  const way = facingDeg() != null ? "Follow my arrow ⬆️" : `Head ${dirName(navBearing)}`;
   steps.textContent = band === "arrived" ? "You're right by it — start hunting! 👀"
     : band === "close" ? "Start looking around for the sticker! 👀"
     : accNow() > FUZZY_M ? "My map is a bit blurry here 🌫️ — " + way.toLowerCase()
@@ -1041,9 +1079,10 @@ function updateStopGuide() {
 // otherwise the dial goes north-up (with an N marker) and the text names the direction.
 function paintArrow() {
   if (navBearing == null) return;
-  const rel = headingDeg != null ? (navBearing - headingDeg + 360) % 360 : navBearing;
+  const facing = facingDeg();
+  const rel = facing != null ? (navBearing - facing + 360) % 360 : navBearing;
   $("gnArrow").style.transform = `rotate(${rel}deg)`;
-  $("guideNav").classList.toggle("north-up", headingDeg == null);
+  $("guideNav").classList.toggle("north-up", facing == null);
 }
 
 function onOrient(e) {
@@ -1075,15 +1114,25 @@ function needsCompassTap() {
   try { return typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"; }
   catch { return false; }
 }
+// Only worth asking while the compass would actually add something, and never twice
+// after a no -- iOS will not re-prompt once denied anyway, so the button would just be
+// a dead thing on the card. Walking still points the arrow either way.
 function offerCompass() {
-  $("gnCompass").classList.toggle("hidden", !(headingDeg == null && needsCompassTap()));
+  const want = headingDeg == null && needsCompassTap() && !compassAsked;
+  $("gnCompass").classList.toggle("hidden", !want);
 }
 async function askCompass() {
+  // Set before the await, not after: either answer is final for this visit (iOS will
+  // not re-prompt once refused), and it stops an excited double-tap asking twice. It
+  // also has to be what hides the button -- waiting on headingDeg would leave it
+  // sitting there after a YES until the next GPS fix, looking like a dud.
+  compassAsked = true;
+  offerCompass();
   try {
     const r = await DeviceOrientationEvent.requestPermission();
-    if (r === "granted") { startCompass(); $("gnCompass").classList.add("hidden"); }
-    else $("gnCompass").textContent = "Compass is off — the arrow still points from the map 🗺️";
-  } catch { $("gnCompass").classList.add("hidden"); }
+    if (r === "granted") startCompass();
+    else guideBurst("No problem — just start walking! 🚶");
+  } catch {}
 }
 
 // ---------- "Sticker Missing? Report it!" (bottom of the stop card) ----------
