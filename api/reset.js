@@ -2,6 +2,7 @@
 //
 //   POST { code, keepCards:true }   -> wipes scans/players/alerts, KEEPS your cards
 //   POST { code, keepCards:false }  -> wipes those AND the published cards
+//   POST { code, clearMissing:true} -> forgets missing-sticker reports, nothing else
 //
 // Only ever touches keys under the "nq:" prefix, so a shared Upstash database keeps
 // its other apps (becu:*, sparkle:*) intact. There is no GET — you can't do this by
@@ -19,6 +20,8 @@ const redis = url && token ? new Redis({ url, token }) : null;
 
 const P = "nq:";
 const CONFIG = P + "config";
+const RECENT = P + "recent";
+const MISSING = P + "missing:byStop";
 // Set ADMIN_CODE in Vercel to something only you know; 8979 is the built-in default.
 const ADMIN_CODE = process.env.ADMIN_CODE || "8979";
 
@@ -28,6 +31,32 @@ export default async function handler(req, res) {
   try {
     const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     if ((b.code || "").toString() !== ADMIN_CODE) { res.status(403).json({ error: "Wrong setup code." }); return; }
+    // ---- the small, surgical one ----
+    // A tap on "Sticker Missing?" while testing leaves a permanent 🙈 against that stop
+    // and a row on the activity feed, and there was no way to take one back short of
+    // wiping everything. This clears the missing tally and drops those rows, and
+    // touches nothing else.
+    //
+    // It does NOT un-find anything: a sticker_missing also stamped a real find at the
+    // time, because the phone confirmed the child was standing there. That stays.
+    if (b.clearMissing) {
+      const rows = (await redis.lrange(RECENT, 0, -1)) || [];
+      const keep = rows.filter((r) => {
+        try {
+          const o = typeof r === "string" ? JSON.parse(r) : r;
+          return !o || (o.event !== "sticker_missing" && o.event !== "sticker_report");
+        } catch { return true; }        // unreadable row: leave it alone rather than eat it
+      });
+      const pipe = redis.pipeline();
+      pipe.del(MISSING);
+      pipe.del(RECENT);
+      // rpush in the order read, so the newest stays at index 0 the way lpush left it
+      if (keep.length) pipe.rpush(RECENT, ...keep.map((r) => (typeof r === "string" ? r : JSON.stringify(r))));
+      await pipe.exec();
+      res.status(200).json({ ok: true, clearedMissing: true, removed: rows.length - keep.length, kept: keep.length });
+      return;
+    }
+
     const keepCards = b.keepCards !== false;
 
     // Read the cards first, so a scan that sweeps the whole namespace can put them back.

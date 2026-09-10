@@ -165,8 +165,13 @@ export default async function handler(req, res) {
     }
     if (isMissingReport && stop != null) p.hincrby(P + "missing:byStop", String(stop), 1);
     if (event === "complete") p.incr(P + "completions");
-    p.lpush(P + "recent", JSON.stringify({ ts: Date.now(), stop, event, mascot }));
-    p.ltrim(P + "recent", 0, 49);                          // keep last 50 events
+    // Everything EXCEPT a plain app-open goes on the activity feed. A "home" still
+    // registers the session above (that is what counts a visitor); it just is not
+    // something the dashboard should list, or the real finds scroll away under it.
+    if (event !== "home") {
+      p.lpush(P + "recent", JSON.stringify({ ts: Date.now(), stop, event, mascot }));
+      p.ltrim(P + "recent", 0, 49);                        // keep last 50 events
+    }
     await p.exec();
 
     // Tell the hider. Never let a failed notification break the scan itself.

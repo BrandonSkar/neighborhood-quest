@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       redis.hgetall(P + "scans:byStop"),
       redis.hgetall(P + "missing:byStop"),
       redis.hgetall(P + "mascots"),
-      redis.lrange(P + "recent", 0, 24),
+      redis.lrange(P + "recent", 0, 49),
       redis.hgetall(P + "profiles"),
     ]);
 
@@ -54,10 +54,18 @@ export default async function handler(req, res) {
     const mascotArr = Object.entries(mascots || {})
       .map(([mascot, n]) => ({ mascot, n: +n }))
       .sort((a, b) => b.n - a.n);
+    // "Opened the app" is not activity — it is the app booting. Every phone that still
+    // has the hunt on its home screen fires one, so left in they bury the actual finds
+    // (and put whoever just glanced at it back on top of the list). Dropped here as well
+    // as at the source, so the ones already logged disappear too.
+    //
+    // ts stays a NUMBER all the way to the browser: scan.js stores Date.now(), and
+    // handing the dashboard an ISO string instead made its "3m ago" arithmetic NaN.
     const recent = (recentRaw || [])
       .map((r) => { try { return typeof r === "string" ? JSON.parse(r) : r; } catch { return null; } })
-      .filter(Boolean)
-      .map((r) => ({ ts: new Date(r.ts).toISOString(), stop_id: r.stop, event: r.event, mascot: r.mascot }));
+      .filter((r) => r && r.event !== "home")
+      .slice(0, 25)
+      .map((r) => ({ ts: Number(r.ts) || Date.parse(r.ts) || 0, stop_id: r.stop, event: r.event, mascot: r.mascot }));
 
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json({
