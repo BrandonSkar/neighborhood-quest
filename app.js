@@ -321,9 +321,15 @@ function initLeaflet() {
   lmap = L.map("map", {
     center: FALLBACK_CENTER, zoom: 15, minZoom: 10, maxZoom: 18, zoomControl: true,
   });
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-    attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>',
-    maxZoom: 19, subdomains: "abcd",
+  // Esri, not CARTO: CARTO moved their basemaps behind an API key and now stamps
+  // "API KEY REQUIRED" diagonally across every tile. This one needs no key, and unlike
+  // the OSM volunteer servers (which block apps outright) and the Humanitarian style
+  // (which stops rendering above z17 out here) it has tiles all the way down to the
+  // zoom a child uses standing in the park. Note the {z}/{y}/{x} order -- Esri puts
+  // row before column, and swapping them silently serves tiles for the wrong place.
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+    attribution: 'Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, DeLorme, NAVTEQ, USGS',
+    maxZoom: 19,
   }).addTo(lmap);
 
   // --- cartoon greenery from OpenStreetMap (parks + woods), drawn UNDER the pins ---
