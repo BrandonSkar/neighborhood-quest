@@ -401,6 +401,12 @@ function showMap() {
 let youMarker = null, youAccuracy = null, geoWatchId = null;
 let lastFix = null;                 // [lat, lng] of the child's phone
 let lastAcc = null;                 // ...and how much the phone trusts it, in metres
+// A child who taps "Block" on the location prompt used to get a guide stuck forever on
+// "Hold on -- let me find us on the map!". These let the buddy say what is missing and
+// offer a way back in.
+let geoDenied = false;              // the browser told us no
+let geoAsked = false;               // ...and they have tapped the buddy to ask again
+let geoRetried = false;             // ...and that second ask was refused too
 
 function haversine(a, b) {          // meters between two [lat, lng] points
   const R = 6371000, toRad = (d) => (d * Math.PI) / 180;
@@ -409,17 +415,35 @@ function haversine(a, b) {          // meters between two [lat, lng] points
     Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-function startGeo() {
-  if (geoWatchId != null || !("geolocation" in navigator)) return;
+// retry=true tears the old watch down first: a watch that has already been refused
+// never asks again on its own, so without this the buddy's "tap to try again" would be
+// a button that does nothing at all.
+function startGeo(retry) {
+  if (!("geolocation" in navigator)) return;
+  if (geoWatchId != null) {
+    if (!retry) return;
+    try { navigator.geolocation.clearWatch(geoWatchId); } catch {}
+    geoWatchId = null;
+  }
   try {
     geoWatchId = navigator.geolocation.watchPosition(
       (p) => onFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy, p.coords.heading, p.coords.speed),
-      () => {}, // denied/unavailable -> the map just works without the dot
+      onGeoError,
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     );
   } catch {}
 }
+
+// code 1 is the only one worth speaking up about: 2 and 3 are "no fix right this
+// second", which is ordinary indoors and under trees and fixes itself.
+function onGeoError(err) {
+  if (!err || err.code !== 1) return;
+  if (geoAsked) geoRetried = true;        // they asked again and it still said no
+  geoDenied = true;
+  updateStopGuide();
+}
 function onFix(lat, lng, acc, heading, speed) {
+  geoDenied = false; geoRetried = false;   // whatever happened before, we can see now
   lastFix = [lat, lng];
   lastAcc = typeof acc === "number" && isFinite(acc) ? acc : null;
   noteGpsHeading([lat, lng], heading, speed);
@@ -874,6 +898,8 @@ let navBearing = null;               // direction to it, degrees clockwise from 
 let navLastDist = null, navWrong = 0;
 let headingDeg = null, compassOn = false;   // which way the phone is actually pointing
 let compassAsked = false;                   // ...and whether we already put the question
+let compassGranted = false;                 // a yes, before the first reading arrives
+let compassRetried = false;                 // asked a second time and still refused
 
 // ---- facing, WITHOUT the compass ----
 // An iPhone will not hand over the compass until somebody taps through a permission
@@ -1027,12 +1053,15 @@ function updateStopGuide() {
     box.classList.add("searching");
     box.classList.remove("hot", "north-up", "arrived");
     navBand = null;
-    say.textContent = s.ll
-      ? "Hold on — let me find us on the map! 📍"
-      : `Look for the ${s.emoji} sticker around ${s.name}! 🔍`;
-    steps.textContent = s.ll ? "Turn on your location and I'll point the way." : "";
+    // "Turn on your location" is no help to a six-year-old who already tapped Block.
+    // When that is what happened the buddy says what they are missing out on, and the
+    // button underneath asks the browser again.
+    say.textContent = !s.ll ? `Look for the ${s.emoji} sticker around ${s.name}! 🔍`
+      : geoDenied ? "I can't see where we are! Let me peek at the map and I'll walk you straight to it. 🗺️"
+      : "Hold on — let me find us on the map! 📍";
+    steps.textContent = s.ll && !geoDenied ? "Turn on your location and I'll point the way." : "";
     $("gnFill").style.width = "0%";
-    $("gnCompass").classList.add("hidden");
+    offerHelp();
     return;
   }
 
@@ -1078,7 +1107,7 @@ function updateStopGuide() {
 
   // hotness bar: empty a couple of blocks away, full when you're on top of it
   $("gnFill").style.width = Math.round(Math.max(0, Math.min(1, 1 - d / 250)) * 100) + "%";
-  offerCompass();
+  offerHelp();
 }
 
 // The arrow points at the real spot when we know which way the phone is facing;
@@ -1120,25 +1149,63 @@ function needsCompassTap() {
   try { return typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"; }
   catch { return false; }
 }
-// Only worth asking while the compass would actually add something, and never twice
-// after a no -- iOS will not re-prompt once denied anyway, so the button would just be
-// a dead thing on the card. Walking still points the arrow either way.
-function offerCompass() {
-  const want = headingDeg == null && needsCompassTap() && !compassAsked;
-  $("gnCompass").classList.toggle("hidden", !want);
+// One button under the buddy, for whichever permission is in the way. Location comes
+// first: without it there is no arrow at all, only a name to go looking for. The
+// compass is the upgrade on top -- walking already points the arrow (see facingDeg),
+// it just cannot point while a child is standing still.
+//
+// A refusal no longer hides the button, it rewords it: the buddy says what they are
+// missing out on, and tapping asks again. That matters most on iOS, where a fresh page
+// load DOES re-prompt even though a second ask inside one visit will not.
+function offerHelp() {
+  const b = $("gnCompass");
+  let msg = "";
+  if (geoDenied) {
+    msg = geoRetried
+      ? "📍 Ask a grown-up to turn Location on for this app"
+      : "📍 Let me see where we are — tap here!";
+  } else if (headingDeg == null && needsCompassTap() && !compassGranted) {
+    msg = compassRetried
+      ? "🧭 Shut the app and open it again to let me point 🗺️"
+      : compassAsked
+        ? "🧭 It’s much easier if I can point — tap to try again!"
+        : "🧭 Tap me and I’ll point right at it!";
+  }
+  b.textContent = msg;
+  b.classList.toggle("hidden", !msg);
 }
+
+function askHelp() {
+  if (geoDenied) { askGeo(); return; }
+  if (needsCompassTap()) askCompass();
+}
+
+// Asking again only gets anywhere if the old, already-refused watch is thrown away
+// first -- see startGeo(retry).
+function askGeo() {
+  geoAsked = true;
+  guideBurst("Looking… 📍");
+  startGeo(true);
+  offerHelp();
+}
+
 async function askCompass() {
-  // Set before the await, not after: either answer is final for this visit (iOS will
-  // not re-prompt once refused), and it stops an excited double-tap asking twice. It
-  // also has to be what hides the button -- waiting on headingDeg would leave it
-  // sitting there after a YES until the next GPS fix, looking like a dud.
+  const again = compassAsked;    // a second tap: iOS may answer no without asking anyone
   compassAsked = true;
-  offerCompass();
   try {
     const r = await DeviceOrientationEvent.requestPermission();
-    if (r === "granted") startCompass();
-    else guideBurst("No problem — just start walking! 🚶");
-  } catch {}
+    if (r === "granted") {
+      // compassGranted, not headingDeg, is what hides the button: headingDeg stays null
+      // until the first reading lands, so a yes would otherwise look like a dud tap.
+      compassGranted = true; compassRetried = false;
+      startCompass();
+      guideBurst("Got it! 🧭");
+    } else {
+      compassRetried = again;
+      guideBurst("No problem — just start walking! 🚶");
+    }
+  } catch { compassRetried = again; }
+  offerHelp();
 }
 
 // ---------- "Sticker Missing? Report it!" (bottom of the stop card) ----------
@@ -1712,7 +1779,7 @@ $("closePassport").onclick = () => $("passportModal").classList.add("hidden");
 $("closeStop").onclick = closeStop;
 $("scanStickerBtn").onclick = openScanner;
 $("camClose").onclick = closeScanner;
-$("gnCompass").onclick = askCompass;
+$("gnCompass").onclick = askHelp;
 $("codeBtn").onclick = () => openCodeBox($("codeForm").classList.contains("hidden"));
 $("codeForm").onsubmit = submitTypedCode;
 $("stickerGoneBtn").onclick = reportStickerMissing;
