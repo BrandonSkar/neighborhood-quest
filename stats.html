@@ -212,6 +212,9 @@ function render(d, live){
     pbox.innerHTML = players.map(p => {
       const name = (p.name && p.name.trim()) ? escapeHtml(p.name) : "<span class='muted'>(no name)</span>";
       const got = new Set(p.codes || []);
+      // Only stamps on stickers that are live right now. A phone keeps the stamp from a
+      // code you've since changed or deleted, so p.found can be higher than the hunt.
+      const found = STOPS.length ? STOPS.filter(s => got.has(s.code)).length : (p.found || 0);
       const rows = SECTIONS.map(sec => {
         const mine = STOPS.filter(s => s.section === sec.id);
         const n = mine.filter(s => got.has(s.code)).length;
@@ -227,7 +230,7 @@ function render(d, live){
           <b class="pl-name">${name}</b>
           <span class="pl-when muted">${timeAgo(p.updated)}</span>
         </div>
-        <div class="pl-found">🏅 ${p.found}${total?" of "+total:""} found${p.found>=total&&total?" ✅":""}</div>
+        <div class="pl-found">🏅 ${found}${total?" of "+total:""} found${found>=total&&total?" ✅":""}</div>
         ${rows}
       </div>`;
     }).join("");

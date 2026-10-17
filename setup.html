@@ -585,7 +585,9 @@
         h.className = "grp"; h.textContent = g.head;
         box.appendChild(h);
       }
-      g.list.forEach((c) => renderCard(box, c, cards.indexOf(c)));
+      // the 🎁 chest is the last thing they find, so it's always the last card in its area
+      const list = g.list.filter((c) => c.role !== "chest").concat(g.list.filter((c) => c.role === "chest"));
+      list.forEach((c) => renderCard(box, c, cards.indexOf(c)));
     });
     if (!cards.length) box.innerHTML = `<p class="note">No stickers placed yet. Print a sheet above, tape one somewhere good, then type its code in below.</p>`;
   }
