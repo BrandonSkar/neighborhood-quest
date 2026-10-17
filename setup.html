@@ -48,6 +48,11 @@
   .ce-head{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
   .ce-code{font-family:"Consolas",ui-monospace,monospace;font-size:21px;font-weight:800;letter-spacing:2px;
     color:#2a3346;background:#eef2fb;border:1px solid #dbe3f2;border-radius:9px;padding:3px 10px;}
+  button.ce-code{cursor:pointer;}
+  button.ce-code:hover{border-color:#5b8def;}
+  .ce-code-edit{font-family:"Consolas",ui-monospace,monospace;font-size:19px;font-weight:800;letter-spacing:2px;
+    width:9.5em;padding:3px 8px;border:2px solid #5b8def;border-radius:9px;}
+  .ce-code-msg{font-size:12px;font-weight:700;color:#c0392b;}
   .ce-state{font-size:12px;font-weight:800;color:#a0abc2;text-transform:uppercase;letter-spacing:.4px;}
   .ce-state.ok{color:#118a52;}
   .ce-top{display:flex;gap:10px;align-items:center;}
@@ -294,6 +299,7 @@
   // each card: { emoji, name, lat, lng, park, code, acc }  — one per sticker you've placed
   let cards = [];
   let configLoaded = false;       // did we actually read the live cards? (see publish)
+  let liveCodes = new Set();      // codes that are out there on kids' phones right now
 
   // The game always lives here, so the QR links build themselves.
   const BASE = "https://neighborhood-quest.vercel.app/";
@@ -327,6 +333,7 @@
     } catch { /* offline or file:// — handled just below */ }
 
     cards = src.map(fromStop);
+    liveCodes = new Set(cards.map((c) => c.code));
     if (!configLoaded) {
       $("addAreaBtn").disabled = true;
       $("loadWarn").textContent = "⚠️ Couldn't read your cards from the database, so this page can't publish " +
@@ -590,7 +597,7 @@
       el.dataset.code = c.code;
       el.innerHTML = `
         <div class="ce-head">
-          <span class="ce-code" title="Printed on this card's sticker">${escapeHtml(c.code)}</span>
+          <button class="ce-code" title="Printed on this card's sticker — tap to change it">${escapeHtml(c.code)} ✏️</button>
           <span class="ce-state${ready(c) ? " ok" : ""}">${escapeHtml(stateWord(c))}</span>
         </div>
         <div class="ce-top">
@@ -648,6 +655,41 @@
       const locBtn = el.querySelector(".ce-loc");
       const pin = el.querySelector(".ce-pin");
       const delBtn = el.querySelector(".ce-del");
+
+      // ---- fix a mistyped code (or swap in a replacement sticker) ----
+      const codeBtn = el.querySelector(".ce-code");
+      codeBtn.onclick = () => {
+        const box = document.createElement("input");
+        box.className = "ce-code-edit"; box.value = c.code; box.maxLength = 12;
+        box.setAttribute("aria-label", "Code printed on the sticker");
+        box.autocomplete = "off"; box.autocapitalize = "off"; box.spellcheck = false;
+        const msg = document.createElement("span"); msg.className = "ce-code-msg";
+        codeBtn.replaceWith(box); box.after(msg);
+        box.focus(); box.select();
+        let done = false, asked = 0;
+        const finish = (save, blurred) => {
+          if (done) return;
+          const next = normCode(box.value);
+          if (save && next !== c.code) {
+            if (!/^[0-9a-f]{4,12}$/.test(next)) { msg.textContent = "Codes are 4–12 of 0-9 and a-f, like a1f4c9."; if (!blurred) box.focus(); return; }
+            const clash = cards.find((o) => o !== c && o.code === next);
+            if (clash) { msg.textContent = `Already used by "${clash.name || clash.code}".`; if (!blurred) box.focus(); return; }
+            asked = Date.now();
+            if (liveCodes.has(c.code) && !confirm(`Change this sticker's code from ${c.code} to ${next}?\n\nAfter you publish, a sticker printed with ${c.code} stops working, and kids who already stamped it will see this spot as not found yet.`)) {
+              if (!blurred) { box.focus(); return; }
+            } else c.code = next;
+          }
+          done = true;
+          renderAreas(); renderCards();
+          const again = $("cards").querySelector(`[data-code="${c.code}"]`);
+          if (again) again.scrollIntoView({ block: "center" });
+        };
+        box.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); finish(true); }
+          if (e.key === "Escape") { e.preventDefault(); finish(false); }
+        });
+        box.addEventListener("blur", () => setTimeout(() => { if (Date.now() - asked > 600) finish(true, true); }, 0));
+      };
 
       const state = el.querySelector(".ce-state");
       const showState = () => {
