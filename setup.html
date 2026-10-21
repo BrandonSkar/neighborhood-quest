@@ -908,8 +908,14 @@
       }
     } catch { return { stops, sections }; }
     if (!live) return { stops, sections };
+    // A stray is a card added from ANOTHER device since this page loaded. A code this page
+    // loaded and then changed or deleted is not a stray — that was you, on purpose, and
+    // offering to "keep" it is exactly how an edited card used to come back as a twin.
     const mine = new Set(stops.map((s) => s.code));
-    const strays = live.filter((s) => s && s.code && !mine.has(normCode(s.code)));
+    const strays = live.filter((s) => {
+      const code = s && normCode(s.code);
+      return code && !mine.has(code) && !liveCodes.has(code);
+    });
     if (!strays.length) return { stops, sections };
     const named = strays.map((s) => (s.name || "").trim() || s.code).join(", ");
     if (!confirm(`The database has ${strays.length} card(s) this page doesn't know about:\n\n${named}\n\n` +
@@ -945,6 +951,7 @@
       // keep this device's game in sync immediately
       try { localStorage.setItem("nq_config", JSON.stringify({ sections, stops })); } catch {}
       cards = stops.map(fromStop);                  // anything merged in above is ours now
+      liveCodes = new Set(cards.map((c) => c.code)); // and this is what's live from here on
       areas = sections.map((a) => ({ id: a.id, name: a.name || "", emoji: a.emoji || "📍" }));
       renderAreas(); renderCards();
       setStatus(`✅ Published ${j.count} card(s) in ${j.areas} area(s) — ${live} live for kids` +
@@ -975,6 +982,7 @@
       // this device was holding the old hunt in localStorage too
       try { localStorage.removeItem("nq_config"); } catch {}
       cards = j.keptCards ? cards : [];
+      if (!j.keptCards) liveCodes = new Set();
       renderCards();
     } catch {
       setWipeStatus("Couldn't reach the server — open this page on the live site.", "err");
